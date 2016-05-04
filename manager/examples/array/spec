@@ -1,0 +1,3438 @@
+#!ruby
+# Copy of http://ruby-doc.org/core-2.1.4/Array.html
+
+Manager.config title: "Array"
+manage nil
+
+spec nil,
+	"Arrays are ordered, integer-indexed collections of any object.",
+	"`Array` indexing starts at `0`, as in C or Java. A negative index is assumed to be relative to the end of the array---that is, an index of `-1` indicates the last element of the array, `-2` is the next to last element in the array, and so on.",
+coda
+
+spec "=Creating Arrays",
+	"A new array can be created by using the literal constructor `[]`. Arrays can contain different types of objects. For example, the array below contains an `Integer`, a `String` and a `Float`:",
+	<<~'RUBY'.code,
+		ary = [1, "two", 3.0] #=> [1, "two", 3.0]
+	RUBY
+	"An array can also be created by explicitly calling `::new` with zero, one (the initial size of the `Array`), or two arguments (the initial size and a default object).",
+	<<~'RUBY'.code,
+		ary = Array.new    #=> []
+		Array.new(3)       #=> [nil, nil, nil]
+		Array.new(3, true) #=> [true, true, true]
+	RUBY
+	"Note that the second argument populates the array with references to the same object. Therefore, it is only recommended in cases when you need to instantiate arrays with natively immutable objects such as symbols, numbers, `true`, or `false`.",
+	"To create an array with separate objects, a block can be passed instead. This method is safe to use with mutable objects such as hashes, strings, or other arrays:",
+	<<~'RUBY'.code,
+		Array.new(4){Hash.new} #=> [{}, {}, {}, {}]
+	RUBY
+	"This is also a quick way to build up multi-dimensional arrays:",
+	<<~'RUBY'.code,
+		empty_table = Array.new(3){Array.new(3)}
+		#=> [[nil, nil, nil], [nil, nil, nil], [nil, nil, nil]]
+	RUBY
+	"An array can also be created by using the `Array()` method, provided by `Kernel`, which tries to call `to_ary`, then `to_a` on its argument.",
+	<<~'RUBY'.code,
+		Array({:a => "a", :b => "b"}) #=> [[:a, "a"], [:b, "b"]]
+	RUBY
+coda
+
+spec "=Example Usage",
+	"In addition to the methods it mixes in through the `Enumerable` module, the `Array` class has proprietary methods for accessing, searching and otherwise manipulating arrays.",
+"Some of the more common ones are illustrated below.",
+coda
+
+spec "=Accessing Elements",
+	"Elements in an array can be retrieved using the `#[]` method. It can take a single integer argument (a numeric index), a pair of arguments (start and length), or a range. Negative indices start counting from the end, with `-1` being the last element.",
+	<<~'RUBY'.code,
+		arr = [1, 2, 3, 4, 5, 6]
+		arr[2]     #=> 3
+		arr[100]   #=> nil
+		arr[-3]    #=> 4
+		arr[2, 3]  #=> [3, 4, 5]
+		arr[1..4]  #=> [2, 3, 4, 5]
+		arr[1..-3] #=> [2, 3, 4]
+	RUBY
+	"Another way to access a particular array element is by using the at method",
+	<<~'RUBY'.code,
+		arr.at(0) #=> 1
+	RUBY
+	"The slice method works in an identical manner to `#[]`.",
+	"To raise an error for indices outside of the array bounds or else to provide a default value when that happens, you can use `fetch`.",
+	<<~'RUBY'.code,
+		arr = ["a", "b", "c", "d", "e", "f"]
+		arr.fetch(100) #=> IndexError: index 100 outside of array bounds: -6...6
+		arr.fetch(100, "oops") #=> "oops"
+	RUBY
+	"The special methods `first` and `last` will return the first and last elements of an array, respectively.",
+	<<~'RUBY'.code,
+		arr.first #=> 1
+		arr.last  #=> 6
+	RUBY
+	"To return the first n elements of an array, use take",
+	<<~'RUBY'.code,
+		arr.take(3) #=> [1, 2, 3]
+	RUBY
+	"`drop` does the opposite of `take`, by returning the elements after n elements have been dropped:",
+	<<~'RUBY'.code,
+		arr.drop(3) #=> [4, 5, 6]
+	RUBY
+coda
+
+spec "=Obtaining Information about an Array",
+	"Arrays keep track of their own length at all times. To query an array about the number of elements it contains, use `length`, `count`, or `size`.",
+	<<~'RUBY'.code,
+		browsers = ["Chrome", "Firefox", "Safari", "Opera", "IE"]
+		browsers.length #=> 5
+		browsers.count #=> 5
+	RUBY
+	"To check whether an array contains any elements at all",
+	<<~'RUBY'.code,
+		browsers.empty? #=> false
+	RUBY
+	"To check whether a particular item is included in the array",
+	<<~'RUBY'.code,
+		browsers.include?("Konqueror") #=> false
+	RUBY
+coda
+
+spec "=Adding Items to Arrays",
+	"Items can be added to the end of an array by using either `push` or `<<`",
+	<<~'RUBY'.code,
+		arr = [1, 2, 3, 4]
+		arr.push(5) #=> [1, 2, 3, 4, 5]
+		arr << 6    #=> [1, 2, 3, 4, 5, 6]
+	RUBY
+	"`unshift` will add a new item to the beginning of an array.",
+	<<~'RUBY'.code,
+		arr.unshift(0) #=> [0, 1, 2, 3, 4, 5, 6]
+	RUBY
+	"With `insert`, you can add a new element to an array at any position.",
+	<<~'RUBY'.code,
+		arr.insert(3, "apple") #=> [0, 1, 2, "apple", 3, 4, 5, 6]
+	RUBY
+	"Using the `insert` method, you can also insert multiple values at once:",
+	<<~'RUBY'.code,
+		arr.insert(3, "orange", "pear", "grapefruit")
+		#=> [0, 1, 2, "orange", "pear", "grapefruit", "apple", 3, 4, 5, 6]
+	RUBY
+coda
+
+spec "=Removing Items from an Array",
+	"The method `pop` removes the last element in an array and returns it:",
+	<<~'RUBY'.code,
+		arr =  [1, 2, 3, 4, 5, 6]
+		arr.pop #=> 6
+		arr #=> [1, 2, 3, 4, 5]
+	RUBY
+	"To retrieve and at the same time remove the first item, use `shift`:",
+	<<~'RUBY'.code,
+		arr.shift #=> 1
+		arr #=> [2, 3, 4, 5]
+	RUBY
+	"To delete an element at a particular index:",
+	<<~'RUBY'.code,
+		arr.delete_at(2) #=> 4
+		arr #=> [2, 3, 5]
+	RUBY
+	"To delete a particular element anywhere in an array, use `delete`:",
+	<<~'RUBY'.code,
+		arr = [1, 2, 2, 3]
+		arr.delete(2) #=> 2
+		arr #=> [1,3]
+	RUBY
+	"A useful method if you need to remove `nil` values from an array is `compact`:",
+	<<~'RUBY'.code,
+		arr = ["foo", 0, nil, "bar", 7, "baz", nil]
+		arr.compact  #=> ["foo", 0, "bar", 7, "baz"]
+		arr          #=> ["foo", 0, nil, "bar", 7, "baz", nil]
+		arr.compact! #=> ["foo", 0, "bar", 7, "baz"]
+		arr          #=> ["foo", 0, "bar", 7, "baz"]
+	RUBY
+	"Another common need is to remove duplicate elements from an array.",
+	"It has the non-destructive `uniq`, and destructive method `uniq!`",
+	<<~'RUBY'.code,
+		arr = [2, 5, 6, 556, 6, 6, 8, 9, 0, 123, 556]
+		arr.uniq #=> [2, 5, 6, 556, 8, 9, 0, 123]
+	RUBY
+coda
+
+spec "=Iterating over Arrays",
+	"Like all classes that include the `Enumerable` module, `Array` has an each method, which defines what elements should be iterated over and how. In case of `Array`’s `each`, all elements in the `Array` instance are yielded to the supplied block in sequence.",
+	"Note that this operation leaves the array unchanged.",
+	<<~'RUBY'.code,
+		arr = [1, 2, 3, 4, 5]
+		arr.each{|a| print a -= 10, " "}
+		# prints: -9 -8 -7 -6 -5
+		#=> [1, 2, 3, 4, 5]
+	RUBY
+	"Another sometimes useful iterator is `reverse_each` which will iterate over the elements in the array in reverse order.",
+	<<~'RUBY'.code,
+		words = %w[first second third fourth fifth sixth]
+		str = ""
+		words.reverse_each{|word| str += "\#\{word\} "}
+		p str #=> "sixth fifth fourth third second first "
+	RUBY
+	"The `map` method can be used to create a new array based on the original array, but with the values modified by the supplied block:",
+	<<~'RUBY'.code,
+		arr.map{|a| 2*a}   #=> [2, 4, 6, 8, 10]
+		arr                #=> [1, 2, 3, 4, 5]
+		arr.map!{|a| a**2} #=> [1, 4, 9, 16, 25]
+		arr                #=> [1, 4, 9, 16, 25]
+	RUBY
+coda
+
+spec "=Selecting Items from an Array",
+	"Elements can be selected from an array according to criteria defined in a block. The selection can happen in a destructive or a non-destructive manner. While the destructive operations will modify the array they were called on, the non-destructive methods usually return a new array with the selected elements, but leave the original array unchanged.",
+coda
+
+spec "==Non-destructive Selection",
+	<<~'RUBY'.code,
+		arr = [1, 2, 3, 4, 5, 6]
+		arr.select{|a| a > 3}     #=> [4, 5, 6]
+		arr.reject{|a| a < 3}     #=> [3, 4, 5, 6]
+		arr.drop_while{|a| a < 4} #=> [4, 5, 6]
+		arr                       #=> [1, 2, 3, 4, 5, 6]
+	RUBY
+coda
+
+spec "==Destructive Selection",
+	"`select!` and `reject!` are the corresponding destructive methods to `select` and `reject`",
+	"Similar to `select` vs. `reject`, `delete_if` and `keep_if` have the exact opposite result when supplied with the same block:",
+	<<~'RUBY'.code,
+		arr.delete_if{|a| a < 4} #=> [4, 5, 6]
+		arr                      #=> [4, 5, 6]
+		arr = [1, 2, 3, 4, 5, 6]
+		arr.keep_if{|a| a < 4} #=> [1, 2, 3]
+		arr                    #=> [1, 2, 3]
+	RUBY
+coda
+
+class Array
+	spec ".[]",
+		{"(*args)" => Array},
+		"Returns a new array populated with the given objects.",
+		<<~'RUBY'.code,
+			Array.[](1, "a", /^A/) # => [1, "a", /^A/]
+			Array[1, "a", /^A/]    # => [1, "a", /^A/]
+			[1, "a", /^A/]         # => [1, "a", /^A/]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_01_square_brackets",
+		Array.UT(5, 4, 3, 2, 1).instance_of?(Array),
+		RETURN.length == 5,
+		*(0..4).map{|i| RETURN[i] == 5 - i},
+		RETURN[6].nil?,
+	coda
+	spec ".new",
+		"Returns a new array.",
+		{"(size = 0, obj = nil)" => Array},
+		"If no arguments are sent, the new array will be empty. When a `size` and an optional `obj` are sent, an array is created with `size` copies of `obj`. Take notice that all elements will reference the same object `obj`.",
+		{"(array)" => Array},
+		"Creates a copy of the array passed as a parameter (the array is generated by calling `#to_ary` on the parameter).",
+		<<~'RUBY'.code,
+			first_array = ["Matz", "Guido"]
+			second_array = Array.new(first_array) #=> ["Matz", "Guido"]
+			first_array.equal? second_array       #=> false
+		RUBY
+		{"(size){|index| block}" => Array},
+		"An array of the given `size` is created. Each element in this array is created by passing the element’s index to the given block and storing the return value.",
+		<<~'RUBY'.code,
+			Array.new(3){|index| index ** 2}
+			# => [0, 1, 4]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_00_new",
+		Array.UT.instance_of?(Array),
+		RETURN.empty?,
+		RETURN[0].nil?,
+		"Common gotchas",
+		"When sending the second parameter, the same object will be used as the value for all the array elements:",
+		<<~'RUBY'.code,
+			a = Array.new(2, Hash.new)
+			# => [{}, {}]
+			a[0]["cat"] = "feline"
+			a # => [{"cat"=>"feline"}, {"cat"=>"feline"}]
+			a[1]["cat"] = "Felix"
+			a # => [{"cat"=>"Felix"}, {"cat"=>"Felix"}]
+		RUBY
+		"Since all the `Array` elements store the same hash, changes to one of them will affect them all.",
+		"If multiple copies are what you want, you should use the block version which uses the result of that block each time an element of the array needs to be initialized:",
+		<<~'RUBY'.code,
+			a = Array.new(2){Hash.new}
+			a[0]["cat"] = "feline"
+			a # => [{"cat"=>"feline"}, {}]
+		RUBY
+	coda
+	spec ".try_convert",
+		{"(obj)" => Array|value(nil)},
+		"Tries to convert `obj` into an array, using `to_ary` method. Returns the converted array or `nil` if obj cannot be converted for any reason. This method can be used to check if an argument is an array.",
+		<<~'RUBY'.code,
+			Array.try_convert([1])   #=> [1]
+			Array.try_convert("1")   #=> nil
+			if tmp = Array.try_convert(arg)
+			  # the argument is an array
+			elsif tmp = String.try_convert(arg)
+			  # the argument is a string
+			end
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_try_convert",
+		Array.UT([1]) == [1],
+		Array.UT("1").nil?,
+	coda
+	spec "#&", 
+		"See also `[#uniq]`.",
+		{"(other_ary)" => Array},
+		"Set Intersection — Returns a new array containing elements common to the two arrays, excluding any duplicates. The order is preserved from the original array.",
+		"It compares elements using their `hash` and `eql?` methods for efficiency.",
+		<<~'RUBY'.code,
+			[1, 1, 3, 5] & [1, 2, 3]                 #=> [1, 3]
+			["a", "b", "b", "z"] & ["a", "b", "c"]   #=> ["a", "b"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_AND # '&'",
+		Array[1, 1, 3, 5].UT(Array[1, 2, 3]) == Array[1, 3],
+		Array[1, 1, 3, 5].UT(Array[]) == Array[],
+		Array[].UT(Array[1, 2, 3]) == Array[],
+		Array[1, 2, 3].UT(Array[4, 5, 6]) == Array[],
+		"? ruby/test/ruby/test_array.rb:ruby/test/ruby/test_array_andor_0:1/2",
+		[1,2,3].UT([2,4,6]) == [2],
+		"? ruby/test/ruby/test_array.rb:test_0_literal:4/8",
+		[1,2,3].UT([2,3,4]) == [2,3],
+	coda
+	spec "#*",
+		"Repetition",
+		{"(str)" => String},
+		"Equivalent to `self.join(str).`",
+		{"(int)" => Array},
+		"Returns a new array built by concatenating the `int` copies of `self`.",
+		<<~'RUBY'.code,
+			[1, 2, 3] * 3    #=> [1, 2, 3, 1, 2, 3, 1, 2, 3]
+			[1, 2, 3] * ","  #=> "1,2,3"
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_MUL # '*'",
+		Array[].UT(3) == Array[],
+		Array[1].UT(3) == Array[1, 1, 1],
+		Array[1, 2].UT(3) == Array[1, 2, 1, 2, 1, 2],
+		Array[1, 2, 3].UT(0) == Array[],
+		Array[1, 2].UT(-3).raise?(ArgumentError),
+		Array[1, 2, 3, 4, 5].UT("-") == "1-2-3-4-5",
+		Array[1, 2, 3, 4, 5].UT("") == "12345",
+		"? ruby/test/ruby/test_array.rb:test_times",
+		<<~'RUBY'.setup,
+			longp = [127, 63, 31, 15, 7].map{|x| 2**x-1}.find do
+				|x|
+				begin
+					[].first(x)
+				rescue ArgumentError
+					true
+				rescue RangeError
+				false
+				end
+			end
+		RUBY
+		[0, 0, 0, 0].UT((expr('longp') + 1) / 4).raise?(ArgumentError),
+		"? ruby/test/ruby/test_array.rb:test_0_literal:2/8",
+		[1, 2].UT(2) == [1, 2, 1, 2],
+		[1, 2].UT(":") == "1:2",
+	coda
+	spec "#+",
+		"See also `#concat`.",
+		{"(other_ary)" => Array},
+		"Concatenation — Returns a new array built by concatenating the two arrays together to produce a third array.",
+		<<~'RUBY'.code,
+			[1, 2, 3] + [4, 5]    #=> [1, 2, 3, 4, 5]
+			a = ["a", "b", "c"]
+			c = a + ["d", "e", "f"]
+			c                     #=> ["a", "b", "c", "d", "e", "f"]
+			a                     #=> ["a", "b", "c"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_PLUS # '+'",
+		Array[].UT(Array[]) == Array[],
+		Array[1].UT(Array[]) == Array[1],
+		Array[].UT(Array[1]) == Array[1],
+		Array[1].UT(Array[1]) == Array[1, 1],
+		%w(cat dog).UT((1..3).to_a) == Array["cat", "dog", 1, 2, 3],
+		"? ruby/test/ruby/test_array.rb:test_0_literal:1/8",
+		[1, 2].UT([3, 4]) == [1, 2, 3, 4],
+	coda
+	spec "#-",
+		{"(other_ary)" => Array},
+		"Array Difference",
+		"Returns a new array that is a copy of the original array, removing any items that also appear in `other_ary`. The order is preserved from the original array.",
+		"It compares elements using their `hash` and `eql?` methods for efficiency.",
+		<<~'RUBY'.code,
+			[1, 1, 2, 2, 3, 3, 4, 5] - [1, 2, 4]  #=>  [3, 3, 5]
+		RUBY
+		"If you need set-like behavior, see the library class `Set`.",
+		"? ruby/test/ruby/test_array.rb:test_MINUS # '-'",
+		Array[1].UT(Array[1]) == Array[],
+		Array[1, 2, 3, 4, 5].UT(Array[2, 3, 4, 5]) == Array[1],
+		Array[1, 2, 1, 3, 1, 4, 1, 5].UT(Array[2, 3, 4, 5]) == Array[1, 1, 1, 1],
+		expr('1000.times.with_object(Array[]){|_, a| a << 1}')
+			.UT(Array[2]) == expr('Array[1] * 1000'),
+		Array[1, 2, 1].UT(Array[2]) == Array[1, 1],
+		Array[1, 2, 3].UT(Array[4, 5, 6]) == Array[1, 2, 3],
+		"? ruby/test/ruby/test_array.rb:test_0_literal:6/8",
+		[1,2,3].UT([2,3]) == [1],
+	coda
+	spec "#<<",
+		{"(obj)" => Array},
+		"Append—Pushes the given object on to the end of this array. This expression returns the array itself, so several appends may be chained together.",
+		<<~'RUBY'.code,
+			[1, 2] << "c" << "d" << [3, 4]
+			        #=>  [1, 2, "c", "d", [3, 4]]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_LSHIFT # '<<'", #'"
+		'a = Array[]'.setup,
+		expr('a').UT(1).succeed?,
+		RECEIVER == Array[1],
+		expr('a').<<(1).<<(2).UT(3).succeed?,
+		RECEIVER == Array[1, 2, 3],
+		expr('a').<<(1).<<(2).<<(3).<<(nil).UT("cat").succeed?,
+		RECEIVER == Array[1, 2, 3, nil, "cat"],
+		expr('a').<<(1).<<(2).<<(3).<<(nil).<<("cat").UT(expr('a')).succeed?,
+		RECEIVER == expr('Array[1, 2, 3, nil, "cat", a]'),
+	coda
+	spec "#<=>",
+		{"(other_ary)" => value(-1)|value(0)|value(+1)|value(nil)},
+		"Comparison — Returns an integer (`-1`, `0`, or `+1`) if this array is less than, equal to, or greater than `other_ary`.",
+		"`nil` is returned if the two values are incomparable.",
+		"Each object in each array is compared (using the `<=>` operator).",
+		"Arrays are compared in an element-wise manner; the first two elements that are not equal will determine the return value for the whole comparison.",
+		"If all the values are equal, then the return is based on a comparison of the array lengths. Thus, two arrays are equal according to `Array#<=>` if, and only if, they have the same length and the value of each element is equal to the value of the corresponding element in the other array.",
+		<<~'RUBY'.code,
+			["a", "a", "c"]    <=> ["a", "b", "c"]   #=> -1
+			[1, 2, 3, 4, 5, 6] <=> [1, 2]            #=> +1
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_CMP # '<=>'",
+		Array[].UT(Array[]).zero?,
+		Array[1] .UT(Array[1]).zero?,
+		Array[1, 2, 3, "cat"] .UT(Array[1, 2, 3, "cat"]).zero?,
+		Array[] .UT(Array[1]) == -1,
+		Array[1] .UT(Array[]) == 1,
+		Array[1, 2, 3] .UT(Array[1, 2, 3, "cat"]) == -1,
+		Array[1, 2, 3, "cat"] .UT(Array[1, 2, 3]) == 1,
+		Array[1, 2, 3, "cat"] .UT(Array[1, 2, 3, "dog"]) == -1,
+		Array[1, 2, 3, "dog"] .UT(Array[1, 2, 3, "cat"]) == 1,
+	coda
+	spec "#==",
+		{"(other_ary)" =>value(true)|value(false)},
+		"Equality — Two arrays are equal if they contain the same number of elements and if each element is equal to (according to `Object#==`) the corresponding element in `other_ary`.",
+		<<~'RUBY'.code,
+			["a", "c"]    == ["a", "c", 7]     #=> false
+			["a", "c", 7] == ["a", "c", 7]     #=> true
+			["a", "c", 7] == ["a", "d", "f"]   #=> false
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_EQUAL # '=='",
+		Array[].UT(Array[]) == true,
+		Array[1].UT(Array[1]) == true,
+		Array[1, 1, 2, 2].UT(Array[1, 1, 2, 2]) == true,
+		Array[1, 1, 2, 2].UT(Array[1.0, 1.0, 2.0, 2.0]) == true,
+	coda
+	spec "#===",
+		"? ruby/test/ruby/test_array.rb:test_VERY_EQUAL # '==='",
+		Array[].UT(Array[]) == true,
+		Array[1].UT(Array[1]) == true,
+		Array[1, 1, 2, 2].UT(Array[1, 1, 2, 2]) == true,
+		Array[1, 1, 2, 2].UT(Array[1.0, 1.0, 2.0, 2.0]) == true,
+	coda
+	spec "#[]",
+		{"(index)" => Object|value(nil)},
+		{"(start, length)" => Array|value(nil)},
+		{"(range)" => Array|value(nil)},
+		"Element Reference — Returns the element at `index`, or returns a subarray starting at the `start` index and continuing for `length` elements, or returns a subarray specified by `range` of indices.",
+		"Negative indices count backward from the end of the array (`-1` is the last element). For `start` and `range` cases, the starting index is just before an element. Additionally, an empty array is returned when the starting index for an element range is at the end of the array.",
+		"Returns `nil` if the index (or starting index) are out of range.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d", "e"]
+			a[2] +  a[0] + a[1]    #=> "cab"
+			a[6]                   #=> nil
+			a[1, 2]                #=> ["b", "c"]
+			a[1..3]                #=> ["b", "c", "d"]
+			a[4..7]                #=> ["e"]
+			a[6..10]               #=> nil
+			a[-3, 3]               #=> ["c", "d", "e"]
+			# special cases
+			a[5]                   #=> nil
+			a[6, 1]                #=> nil
+			a[5, 1]                #=> []
+			a[5..10]               #=> []
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_AREF # '[]'",
+		'a = Array[*(1..100).to_a]'.setup,
+		expr('a').UT(0) == 1,
+		expr('a').UT(99) == 100,
+		expr('a').UT(100).nil?,
+		expr('a').UT(-1) == 100,
+		expr('a').UT(-2) == 99, 
+		expr('a').UT(-100) == 1,  
+		expr('a').UT(-101).nil?,
+		expr('a').UT(-101,0).nil?,
+		expr('a').UT(-101,1).nil?,
+		expr('a').UT(-101,-1).nil?,
+		expr('a').UT(10,-1).nil?,
+		expr('a').UT(0,1) == Array[1],  
+		expr('a').UT(99,1) == Array[100],
+		expr('a').UT(100,1) == Array[],   
+		expr('a').UT(99,100) == Array[100],
+		expr('a').UT(-1,1) == Array[100],
+		expr('a').UT(-2,1) == Array[99], 
+		expr('a').UT(-100,0) == Array[],   
+		expr('a').UT(-100,1) == Array[1],  
+		expr('a').UT(9, 3) == Array[10, 11, 12],
+		expr('a').UT(-91, 3) == Array[10, 11, 12],
+		expr('a').UT(0..0) == Array[1],  
+		expr('a').UT(99..99) == Array[100],
+		expr('a').UT(100..100) == Array[],   
+		expr('a').UT(99..200) == Array[100],
+		expr('a').UT(-1..-1) == Array[100],
+		expr('a').UT(-2..-2) == Array[99], 
+		expr('a').UT(9..11) == Array[10, 11, 12],
+		expr('a').UT(-91..-89) == Array[10, 11, 12],
+		expr('a').UT(10, -3).nil?,
+		expr('a').UT(10..7) == [],
+		expr('a').UT("cat").raise?(TypeError),
+		"? ruby/test/ruby/test_array.rb:test_aref",
+		[].UT(0, 0, 0).raise?(ArgumentError),
+		"? ruby/test/ruby/test_array.rb:test_0_literal:7/8",
+		'x = [0, 1, 2, 3, 4, 5]'.setup,
+		expr('x').UT(2) == 2,
+		expr('x').UT(1..3) == [1, 2, 3],
+		expr('x').UT(1,3) == [1, 2, 3],
+		"? ruby/test/ruby/test_array.rb:test_slice_frozen_array",
+		'a = [1,2,3,4,5]'.setup,
+		expr('a').UT(0,4) == [1,2,3,4],
+		expr('a').UT(1,4) == [2,3,4,5],
+	coda
+	spec "#[]=",
+		"See also `#push`, and `#unshift`.",
+		{"(index, obj)" => Object},
+		{"((start, length), obj)" => Object},
+		{"(range, obj)" => Object},
+		"Element Assignment — Sets the element at `index`, or replaces a subarray from the `start` index for `length` elements, or replaces a subarray specified by the `range` of indices.",
+		"If indices are greater than the current capacity of the array, the array grows automatically. Elements are inserted into the array at `start` if `length` is zero.",
+		"Negative indices will count backward from the end of the array. For `start` and `range` cases, the starting index is just before an element.",
+		"An `IndexError` is raised if a negative index points past the beginning of the array.",
+		<<~'RUBY'.code,
+			a = Array.new
+			a[4] = "4";               #=> [nil, nil, nil, nil, "4"]
+			a[0, 3] = ["a", "b", "c"] #=> ["a", "b", "c", nil, "4"]
+			a[1..2] = [1, 2]          #=> ["a", 1, 2, nil, "4"]
+			a[0, 2] = "?"             #=> ["?", 2, nil, "4"]
+			a[0..2] = "A"             #=> ["A", "4"]
+			a[-1]   = "Z"             #=> ["A", "Z"]
+			a[1..-1] = nil            #=> ["A", nil]
+			a[1..-1] = []             #=> ["A"]
+			a[0, 0] = [1, 2]          #=> [1, 2, "A"]
+			a[3, 0] = "B"             #=> [1, 2, "A", "B"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_ASET # '[]='",
+		expr('Array[*(0..99).to_a]').UT(0, 0).zero?,
+		RECEIVER == expr('Array[0] + Array[*(1..99).to_a]'),
+		expr('Array[*(0..99).to_a]').UT(10, 10, 0).zero?,
+		RECEIVER == expr('Array[*(0..9).to_a] + Array[0] + Array[*(20..99).to_a]'),
+		expr('Array[*(0..99).to_a]').UT(-1, 0).zero?,
+		RECEIVER == expr('Array[*(0..98).to_a] + Array[0]'),
+		expr('Array[*(0..99).to_a]').UT(-10, 10, 0).zero?,
+		RECEIVER == expr('Array[*(0..89).to_a] + Array[0]'),
+		expr('Array[*(0..99).to_a]').UT(0, 1000, 0).zero?,
+		RECEIVER == Array[0],
+		expr('Array[*(0..99).to_a]').UT(10..19, 0).zero?,
+		RECEIVER == expr('Array[*(0..9).to_a] + Array[0] + Array[*(20..99).to_a]'),
+		'b = Array[*%w(a b c)]'.setup,
+		expr('Array[*(0..99).to_a]').UT(0, 1, expr('b')) == expr('b'),
+		RECEIVER == expr('b + Array[*(1..99).to_a]'),
+		expr('Array[*(0..99).to_a]').UT(10, 10, expr('b')) == expr('b'),
+		RECEIVER == expr('Array[*(0..9).to_a] + b + Array[*(20..99).to_a]'),
+		expr('Array[*(0..99).to_a]').UT(-1, 1, expr('b')) == expr('b'),
+		RECEIVER == expr('Array[*(0..98).to_a] + b'),
+		expr('Array[*(0..99).to_a]').UT(-10, 10, expr('b')) == expr('b'),
+		RECEIVER == expr('Array[*(0..89).to_a] + b'),
+		expr('Array[*(0..99).to_a]').UT(0, 1000, expr('b')) == expr('b'),
+		RECEIVER == expr('b'),
+		expr('Array[*(0..99).to_a]').UT(10..19, expr('b')) == expr('b'),
+		RECEIVER == expr('Array[*(0..9).to_a] + b + Array[*(20..99).to_a]'),
+		'a = Array[1, 2, 3]'.setup,
+		expr('a').UT(1, 0, expr('a')).succeed?,
+		RECEIVER == [1, 1, 2, 3, 2, 3],
+		'a = Array[1, 2, 3]'.setup,
+		expr('a').UT(-1, 0, expr('a')).succeed?,
+		RECEIVER == [1, 2, 1, 2, 3, 3],
+		Array[].UT(5, 0, [5]).succeed?,
+		RECEIVER == [nil, nil, nil, nil, nil, 5],
+		Array[1].UT(1, 0, [2]).succeed?,
+		RECEIVER == [1, 2],
+		Array[1].UT(1, 1, [2]).succeed?,
+		RECEIVER == [1, 2],
+		"? ruby/test/ruby/test_array.rb:test_splice",
+		[0].UT(-2, 0, nil).raise?(IndexError),
+		"? ruby/test/ruby/test_array.rb:test_0_literal:8/8",
+		'x = [0, 1, 2, 3, 4, 5]'.setup,
+		expr('x').UT(0, 2, 10).succeed?,
+		RECEIVER == [10, 2, 3, 4, 5],
+		expr('x').tap{|a| a.[]=(0, 2, 10)}.UT(0, 0, -1).succeed?,
+		RECEIVER == [-1, 10, 2, 3, 4, 5],
+		expr('x').UT(-1, 1, 20).succeed?,
+		RECEIVER[-1] == 20,
+		RECEIVER.pop == 20,
+	coda
+	spec "#assoc",
+		"See also `#rassoc`.",
+		{"(obj)" => Array|value(nil)},
+		"Searches through an array whose elements are also arrays comparing `obj` with the first element of each contained array using `obj.==`.",
+		"Returns the first contained array that matches (that is, the first associated array), or `nil` if no match is found.",
+		<<~'RUBY'.code,
+			s1 = ["colors", "red", "blue", "green"]
+			s2 = ["letters", "a", "b", "c"]
+			s3 = "foo"
+			a  = [s1, s2, s3]
+			a.assoc("letters")  #=> ["letters", "a", "b", "c"]
+			a.assoc("foo")      #=> nil
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_assoc",
+		<<~'RUBY'.setup,
+			a1 = Array[*%w(cat feline)]
+			a2 = Array[*%w(dog canine)]
+			a3 = Array[*%w(mule asinine)]
+			a4 = Array[a1, a2, a3]
+		RUBY
+		expr('a4').UT("cat") == expr('a1'),
+		expr('a4').UT("mule") == expr('a3'),
+		expr('a4').UT("asinine").nil?,
+		expr('a4').UT("wombat").nil?,
+		expr('a4').UT(1..2).nil?,
+	coda
+	spec "#at",
+		"See also `#[]`.",
+		{"(index)" => Object|value(nil)},
+		"Returns the element at `index`. A negative index counts from the end of `self`. Returns `nil` if the index is out of range.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d", "e"]
+			a.at(0)     #=> "a"
+			a.at(-1)    #=> "e"
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_at",
+		'a = Array[*(0..99).to_a]'.setup,
+		expr('a').UT(0).zero?,
+		expr('a').UT(10) == 10,
+		expr('a').UT(99) == 99,
+		expr('a').UT(100).nil?,
+		expr('a').UT(-1) == 99,
+		expr('a').UT(-100).zero?,
+		expr('a').UT(-101).nil?,
+		expr('a').UT("cat").raise?(TypeError),
+	coda
+	spec "#bsearch",
+		{"{|x| block}" => Object},
+		"By using binary search, finds a value from this array which meets the given condition in `O(log n)` where `n` is the size of the array.",
+		"You can use this method in two use cases: a find-minimum mode and a find-any mode. In either case, the elements of the array must be monotone (or sorted) with respect to the block.",
+		"In find-minimum mode (this is a good choice for typical use case), the block must return `true` or `false`, and there must be an index `i` (`0 <= i <= ary.size`) so that:",
+		"* the block returns `false` for any element whose index is less than `i`, and",
+		"* the block returns `true` for any element whose index is greater than or equal to i.",
+		"This method returns the `i`-th element. If `i` is equal to `ary.size`, it returns `nil`.",
+		<<~'RUBY'.code,
+			ary = [0, 4, 7, 10, 12]
+			ary.bsearch{|x| x >=   4} #=> 4
+			ary.bsearch{|x| x >=   6} #=> 7
+			ary.bsearch{|x| x >=  -1} #=> 0
+			ary.bsearch{|x| x >= 100} #=> nil
+		RUBY
+		"In find-any mode (this behaves like libc’s `bsearch(3)`), the block must return a number, and there must be two indices `i` and `j` (`0` <= `i` <= `j` <= `ary.size`) so that:",
+		"* the block returns a positive number for ary if 0 <= k < i,",
+		"* the block returns zero for ary if `i` <= `k` < `j`, and",
+		"* the block returns a negative number for ary if `j` <= `k` < `ary.size`.",
+		"Under this condition, this method returns any element whose index is within `i…j`. If `i` is equal to `j` (i.e., there is no element that satisfies the block), this method returns `nil`.",
+		<<~'RUBY'.code,
+			ary = [0, 4, 7, 10, 12]
+			# try to find v such that 4 <= v < 8
+			ary.bsearch{|x| 1 - x / 4} #=> 4 or 7
+			# try to find v such that 8 <= v < 10
+			ary.bsearch{|x| 4 - x / 2} #=> nil
+		RUBY
+		"You must not mix the two modes at a time; the block must always return either `true`/`false`, or always return a number. It is undefined which value is actually picked up at each iteration.",
+		"? ruby/test/ruby/test_array.rb:test_bsearch_typechecks_return_values",
+		[1, 2, 42, 100, 666].UT{"not ok"}.raise?(TypeError),
+		[1, 2, 42, 100, 666].UT{false} == [1, 2, 42, 100, 666].bsearch{},
+		"? ruby/test/ruby/test_array.rb:test_bsearch_with_no_block",
+		[1, 2, 42, 100, 666].UT.succeed?,
+		RETURN.size.nil?,
+		RETURN.each{|x| x >= 33} == 42,
+		"? ruby/test/ruby/test_array.rb:test_bsearch_in_find_minimum_mode",
+		'a = [0, 4, 7, 10, 12]'.setup,
+		expr('a').UT{|x| x >= 4} == 4,
+		expr('a').UT{|x| x >= 6} == 7,
+		expr('a').UT{|x| x >= -1}.zero?,
+		expr('a').UT{|x| x >= 100}.nil?,
+		"? ruby/test/ruby/test_array.rb:test_bsearch_in_find_any_mode",
+		'a = [0, 4, 7, 10, 12]'.setup,
+		expr('a').UT{|x| 1 - x / 4}.in?([4, 7]),
+		expr('a').UT{|x| 4 - x / 2}.nil?,
+		expr('a').UT{|x| 1}.nil?,
+		expr('a').UT{|x| -1}.nil?,
+		expr('a').UT{|x| (1 - x / 4) * (2**100)}.in?([4, 7]),
+		expr('a').UT{|x| 1 * (2**100)}.nil?,
+		expr('a').UT{|x| (-1) * (2**100)}.nil?,
+		expr('a').UT{|x| (2**100).coerce((1 - x / 4) * (2**100)).first}.in?([4, 7]),
+	coda
+	spec "#clear",
+		{"" => Array},
+		"Removes all elements from `self`.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d", "e"]
+			a.clear    #=> []
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_clear2",
+		expr('([0] * 1024)').UT == [],
+		"? ruby/test/ruby/test_array.rb:test_clear",
+		'a = Array[1, 2, 3]'.setup,
+		expr('a').UT == Array[],
+		RECEIVER == Array[],
+		RECEIVER == expr('a'),
+	coda
+	spec "#collect",
+		"See also `Enumerable#collect`.",
+		{"{|item| block}" => Array},
+		"Invokes the given block once for each element of `self`.",
+		"Creates a new array containing the values returned by the block.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.collect{|x| x + "!"}         #=> ["a!", "b!", "c!", "d!"]
+			a.map.with_index{|x, i| x * i} #=> ["", "b", "cc", "ddd"]
+			a                              #=> ["a", "b", "c", "d"]
+		RUBY
+	coda
+	spec "#collect!",
+		"See also `Enumerable#collect`.",
+		{"{|item| block}" => Array},
+		"Invokes the given block once for each element of self, replacing the element with the value returned by the block.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.map!{|x| x + "!"}
+			a #=>  ["a!", "b!", "c!", "d!"]
+			a.collect!.with_index{|x, i| x[0...i]}
+			a #=>  ["", "b", "c!", "d!"]
+		RUBY
+	coda
+	spec "#combination",
+		{"(n){|c| block}" => Array},
+		"When invoked with a block, yields all combinations of length `n` of elements from the array and then returns the array itself.",
+		"The implementation makes no guarantees about the order in which the combinations are yielded.",
+		{"(n)" => Enumerator},
+		"Examples:",
+		<<~'RUBY'.code,
+			a = [1, 2, 3, 4]
+			a.combination(1).to_a  #=> [[1],[2],[3],[4]]
+			a.combination(2).to_a  #=> [[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]]
+			a.combination(3).to_a  #=> [[1,2,3],[1,2,4],[1,3,4],[2,3,4]]
+			a.combination(4).to_a  #=> [[1,2,3,4]]
+			a.combination(0).to_a  #=> [[]] # one combination of length 0
+			a.combination(5).to_a  #=> []   # no combinations of length 5
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_combination",
+		Array[1,2,3,4].UT(0).to_a == Array[[]],
+		Array[1,2,3,4].UT(1).to_a == Array[[1],[2],[3],[4]],
+		Array[1,2,3,4].UT(2).to_a == Array[[1,2],[1,3],[1,4],[2,3],[2,4],[3,4]],
+		Array[1,2,3,4].UT(3).to_a == Array[[1,2,3],[1,2,4],[1,3,4],[2,3,4]],
+		Array[1,2,3,4].UT(4).to_a == Array[[1,2,3,4]],
+		Array[1,2,3,4].UT(5).to_a == Array[],
+		"? ruby/test/ruby/test_array.rb:test_combination2",
+		"?? ruby-core:29240 Must be yielded even if 100C50 > signed integer",
+		(0..100).to_a.UT(50){break :called} == :called,
+	coda
+	spec "#compact",
+		{"" => Array},
+		"Returns a copy of `self` with all `nil` elements removed.",
+		<<~'RUBY'.code,
+			["a", nil, "b", nil, "c", nil].compact
+			                  #=> ["a", "b", "c"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_compact_0:1/2",
+		[nil, 1, nil, nil, 5, nil, nil].UT == [1, 5],
+		RECEIVER == [nil, 1, nil, nil, 5, nil, nil],
+		"? ruby/test/ruby/test_array.rb:test_compact",
+		Array[1, nil, nil, 2, 3, nil, 4].UT == Array[1, 2, 3, 4],
+		Array[nil, 1, nil, 2, 3, nil, 4].UT == Array[1, 2, 3, 4],
+		Array[1, nil, nil, 2, 3, nil, 4, nil].UT == Array[1, 2, 3, 4],
+		Array[1, 2, 3, 4].UT == Array[1, 2, 3, 4],
+	coda
+	spec "#compact!",
+		{"" => Array|value(nil)},
+		"Removes `nil` elements from the array.",
+		"Returns `nil` if no changes were made, otherwise returns the array.",
+		<<~'RUBY'.code,
+			["a", nil, "b", nil, "c"].compact! #=> ["a", "b", "c"]
+			["a", "b", "c"].compact!           #=> nil
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_compact!",
+		Array[1, nil, nil, 2, 3, nil, 4].UT == Array[1, 2, 3, 4],
+		RECEIVER == Array[1, 2, 3, 4],
+		Array[nil, 1, nil, 2, 3, nil, 4].UT == Array[1, 2, 3, 4],
+		RECEIVER == Array[1, 2, 3, 4],
+		Array[1, nil, nil, 2, 3, nil, 4, nil].UT == Array[1, 2, 3, 4],
+		RECEIVER == Array[1, 2, 3, 4],
+		Array[1, 2, 3, 4].UT.nil?,
+		RECEIVER == Array[1, 2, 3, 4],
+		"? ruby/test/ruby/test_array.rb:test_compact_0:2/2",
+		[nil, 1, nil, nil, 5, nil, nil].UT.succeed?,
+		RECEIVER == [1, 5],
+	coda
+	spec "#concat",
+		"See also `Array#+`.",
+		{"(other_ary)" => Array},
+		"Appends the elements of `other_ary` to `self`.",
+		<<~'RUBY'.code,
+			["a", "b"].concat(["c", "d"]) #=> ["a", "b", "c", "d"]
+			a = [1, 2, 3]
+			a.concat([4, 5])
+			a                             #=> [1, 2, 3, 4, 5]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_concat",
+		Array[1, 2].UT(Array[3, 4]) == Array[1, 2, 3, 4],
+		Array[].UT(Array[1, 2, 3, 4]) == Array[1, 2, 3, 4],
+		Array[1, 2, 3, 4].UT(Array[]) == Array[1, 2, 3, 4],
+		Array[].UT(Array[]) == Array[],
+		Array[Array[1, 2]].UT(Array[Array[3, 4]]) == Array[Array[1, 2], Array[3, 4]],
+		'a = Array[1, 2, 3]'.setup,
+		expr('a').UT(expr('a')).succeed?,
+		RECEIVER == [1, 2, 3, 1, 2, 3],
+		[0].UT(:foo).raise?(TypeError),
+		[0].freeze.UT(:foo).raise?(RuntimeError),
+	coda
+	spec "#count",
+		{"(count)" => Integer},
+		"Returns the number of elements.",
+		{"(obj)" => Integer},
+		"Counts the number of elements which equal `obj` using `==`.",
+		{"{|item| block}" => Integer},
+		"Counts the number of elements for which the block returns a true value.",
+		<<~'RUBY'.code,
+			ary = [1, 2, 4, 2]
+			ary.count               #=> 4
+			ary.count(2)            #=> 2
+			ary.count{|x| (x % 2).zero?} #=> 3
+		RUBY
+	coda
+	spec "#cycle",
+		{"(n=nil){|obj| block}" => NilClass},
+		"Calls the given block for each element `n` times or forever if `nil` is given.",
+		"Does nothing if a non-positive number is given or the array is empty.",
+		"Returns `nil` if the loop has finished without getting interrupted.",
+		{"(n=nil)" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.cycle{|x| puts x}     # print, a, b, c, a, b, c,.. forever.
+			a.cycle(2){|x| puts x}  # print, a, b, c, a, b, c.
+		RUBY
+	coda
+	spec "#delete",
+		{"(obj)" => Object|value(nil)},
+		"Deletes all items from `self` that are equal to `obj`.",
+		"Returns the last deleted item, or `nil` if no matching item is found.",
+		{"(obj){block}" => Object},
+		"The result of the block is returned if the item is not found. (To remove `nil` elements and get an informative return value, use `#compact!`)",
+		<<~'RUBY'.code,
+			a = ["a", "b", "b", "b", "c"]
+			a.delete("b")                #=> "b"
+			a                            #=> ["a", "c"]
+			a.delete("z")                #=> nil
+			a.delete("z"){"not found"}   #=> "not found"
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_delete",
+		expr('Array[*("cab".."cat").to_a]').UT("cap") == "cap",
+		RECEIVER == expr('Array[*("cab".."cao").to_a] + Array[*("caq".."cat").to_a]'),
+		expr('Array[*("cab".."cat").to_a]').UT("cab") == "cab",
+		RECEIVER == expr('Array[*("cac".."cat").to_a]'),
+		expr('Array[*("cab".."cat").to_a]').UT("cat") == "cat",
+		RECEIVER == expr('Array[*("cab".."cas").to_a]'),
+		expr('Array[*("cab".."cat").to_a]').UT("cup").nil?,
+		RECEIVER == expr('Array[*("cab".."cat").to_a]'),
+		expr('Array[*("cab".."cat").to_a]').UT("cup"){99} == 99,
+		RECEIVER == expr('Array[*("cab".."cat").to_a]'),
+		<<~'RUBY'.setup,
+			o = Object.new
+			def o.==(other); true; end
+			o2 = Object.new
+			def o2.==(other); true; end
+		RUBY
+		expr('Array[1, o, o2, 2]').UT(42) == expr('o2'),
+		RECEIVER == [1, 2],
+	coda
+	spec "#delete_at",
+		"See also `#slice!`",
+		{"(index)" => Object|value(nil)},
+		"Deletes the element at the specified `index`, returning that element, or `nil` if the index is out of range.",
+		<<~'RUBY'.code,
+			a = ["ant", "bat", "cat", "dog"]
+			a.delete_at(2)    #=> "cat"
+			a                 #=> ["ant", "bat", "dog"]
+			a.delete_at(99)   #=> nil
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_delete_at",
+		Array[*(1..5).to_a].UT(2) == 3,
+		RECEIVER == Array[1, 2, 4, 5],
+		Array[*(1..5).to_a].UT(-2) == 4,
+		RECEIVER == Array[1, 2, 3, 5],
+		Array[*(1..5).to_a].UT(5).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		Array[*(1..5).to_a].UT(-6).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+	coda
+	spec "#delete_if",
+		"See also `#reject!`",
+		{"{|item| block}" => Array},
+		"Deletes every element of `self` for which block evaluates to `true`.",
+		"The array is changed instantly every time the block is called, not after the iteration is over.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			scores = [97, 42, 75]
+			scores.delete_if{|score| score < 80}   #=> [97]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_delete_if",
+		'a = Array[1, 2, 3, 4, 5]'.setup,
+		expr('a').UT{false} == expr('a'),
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		'a = Array[1, 2, 3, 4, 5]'.setup,
+		expr('a').UT{true} == expr('a'),
+		RECEIVER == Array[],
+		'a = Array[1, 2, 3, 4, 5]'.setup,
+		expr('a').UT{|i| i > 3} == expr('a'),
+		RECEIVER == Array[1, 2, 3],
+		"?? bug2545 = ruby-core:27366",
+		'a = Array[5, 6, 7, 8, 9, 10]'.setup,
+		expr('a').UT{|i| break i if i > 8; i < 7} == 9,
+		RECEIVER == Array[7, 8, 9, 10],
+	coda
+	spec "#drop",
+		"See also `#take`",
+		{"(n)" => Array},
+		"Drops first `n` elements from `ary` and returns the rest of the elements in an array.",
+		"If a negative number is given, raises an `ArgumentError`.",
+		<<~'RUBY'.code,
+			a = [1, 2, 3, 4, 5, 0]
+			a.drop(3)             #=> [4, 5, 0]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_drop",
+		[1,2,3,4,5,0].UT(3) == [4,5,0],
+		"?? ruby-dev:34123",
+		[1,2].UT(-1).raise?(ArgumentError),
+		"?? ruby-dev:34123",
+		[1,2].UT(1000000000) == [],
+	coda
+	spec "#drop_while",
+		"See also `#take_while`",
+		{"{|arr| block}" => Array},
+		"Drops elements up to, but not including, the first element for which the block returns `nil` or `false` and returns an array containing the remaining elements.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = [1, 2, 3, 4, 5, 0]
+			a.drop_while{|i| i < 3}   #=> [3, 4, 5, 0]
+		RUBY
+	coda
+	spec "#each",
+		{"{|item| block}" => Array},
+		"Calls the given block once for each element in `self`, passing that element as a parameter.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.each{|x| print x, " -- "}
+		RUBY
+		"produces:",
+		<<~'RUBY'.code,
+			a -- b -- c --
+		RUBY
+	coda
+	spec "#each_index",
+		{"{|index| block}" => Array},
+		"Same as `#each`, but passes the index of the element instead of the element itself.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.each_index{|x| print x, " -- "}
+		RUBY
+		"produces:",
+		<<~'RUBY'.code,
+			0 -- 1 -- 2 --
+		RUBY
+	coda
+	spec "#empty?",
+		{"" => value(true)|value(false)},
+		"Returns `true` if `self` contains no elements.",
+		<<~'RUBY'.code,
+			[].empty?   #=> true
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_empty_0",
+		[].UT == true,
+		[1].UT == false,
+		[1, 1, 4, 2, 5, 4, 5, 1, 2].UT == false,
+		"? ruby/test/ruby/test_array.rb:test_empty?",
+		Array[].UT == true,
+		Array[1].UT == false,
+	coda
+	spec "#eql?",
+		{"(other)" => value(true)|value(false)},
+		"Returns `true` if `self` and other are the same object, or are both arrays with the same content (according to `Object#eql?`).",
+		"? ruby/test/ruby/test_array.rb:test_eql?",
+		Array[].UT(Array[]) == true,
+		Array[1].UT(Array[1]) == true,
+		Array[1, 1, 2, 2].UT(Array[1, 1, 2, 2]) == true,
+		Array[1, 1, 2, 2].UT(Array[1.0, 1.0, 2.0, 2.0]) == false,
+	coda
+	spec "#fetch",
+		{"(index)" => Object},
+		"Tries to return the element at position `index`, but throws an `IndexError` exception if the referenced `index` lies outside of the array bounds.",
+		{"(index, default)" => Object},
+		"This error is prevented by the `default`, which will act as a default value.",
+		{"(index){|index| block}" => Object},
+		"It will only be executed when an invalid index is referenced. Negative values of index count from the end of the array.",
+		<<~'RUBY'.code,
+			a = [11, 22, 33, 44]
+			a.fetch(1)               #=> 22
+			a.fetch(-1)              #=> 44
+			a.fetch(4, "cat")        #=> "cat"
+			a.fetch(100){|i| puts "\#\{i\} is out of bounds"}
+			                         #=> "100 is out of bounds"
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_fetch",
+		[].UT(0, 0){1} == 1,
+		[0, 1].UT(-1) == 1,
+		[0, 1].UT(2).raise?(IndexError),
+		[0, 1].UT(-3).raise?(IndexError),
+		[0, 1].UT(2, 2) == 2,
+	coda
+	spec "#fill",
+		{"(obj)" => Array},
+		{"(obj, start [, length])" => Array},
+		{"(obj, range)" => Array},
+		"Sets the selected elements of `self` (which may be the entire array) to `obj`.",
+		"A `start` of `nil` is equivalent to zero.",
+		"A `length` of `nil` is equivalent to the length of the array.",
+		"Negative values of `start` count from the end of the array, where `-1` is the last element.",
+		{"{|index| block}" => Array},
+		{"(start [, length]){|index| block}" => Array},
+		{"(range){|index| block}" => Array},
+		"Fills the array with the value of the given block, which is passed the absolute index of each element to be filled.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.fill("x")           #=> ["x", "x", "x", "x"]
+			a.fill("z", 2, 2)     #=> ["x", "x", "z", "z"]
+			a.fill("y", 0..1)     #=> ["y", "y", "z", "z"]
+			a.fill{|i| i*i}       #=> [0, 1, 4, 9]
+			a.fill(-2){|i| i*i*i} #=> [0, 1, 8, 27]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_fill",
+		Array[].UT(99) == Array[],
+		Array[].UT(99, 0) == Array[],
+		Array[].UT(99, 0, 1) == Array[99],
+		Array[].UT(99, 0..0) == Array[99],
+		Array[1].UT(99) == Array[99],
+		Array[1].UT(99, 0) == Array[99],
+		Array[1].UT(99, 0, 1) == Array[99],
+		Array[1].UT(99, 0..0) == Array[99],
+		Array[1, 2].UT(99) == Array[99, 99],
+		Array[1, 2].UT(99, 0) == Array[99, 99],
+		Array[1, 2].UT(99, nil) == Array[99, 99],
+		Array[1, 2].UT(99, 1, nil) == Array[1,  99],
+		Array[1, 2].UT(99, 0, 1) == Array[99,  2],
+		Array[1, 2].UT(99, 0..0) == Array[99,  2],
+		"? ruby/test/ruby/test_array.rb:test_fill_0",
+		[0, 1, 2, 3, 4, 5].UT(-1) == [-1, -1, -1, -1, -1, -1],
+		[0, 1, 2, 3, 4, 5].UT(-1, 3) == [0, 1, 2, -1, -1, -1],
+		[0, 1, 2, 3, 4, 5].UT(-1, 3, 2) == [0, 1, 2, -1, -1, 5],
+		[0, 1, 2, 3, 4, 5].UT(-1, 3, 5) == [0, 1, 2, -1, -1, -1, -1, -1],
+		[0, 1, 2, 3, 4, 5].UT(-1, 2, 2) == [0, 1, -1, -1, 4, 5],
+		[0, 1, 2, 3, 4, 5].UT(-1, 2, 5) == [0, 1, -1, -1, -1, -1, -1],
+		[0, 1, 2, 3, 4, 5].UT(-1, -2, 1) == [0, 1, 2, 3, -1, 5],
+		[0, 1, 2, 3, 4, 5].UT(-1, -2, 3) == [0, 1, 2, 3, -1, -1, -1],
+		[0, 1, 2, 3, 4, 5].UT(-1, 3..4) == [0, 1, 2, -1, -1, 5],
+		[0, 1, 2, 3, 4, 5].UT(-1, 3...4) == [0, 1, 2, -1, 4, 5],
+		[0, 1, 2, 3, 4, 5].UT(-1, 2..-2) == [0, 1, -1, -1, -1, 5],
+		[0, 1, 2, 3, 4, 5].UT(-1, 2...-2) == [0, 1, -1, -1, 4, 5],
+		[0, 1, 2, 3, 4, 5].UT{|i| i+10} == [10, 11, 12, 13, 14, 15],
+		[0, 1, 2, 3, 4, 5].UT(3){|i| i+10} == [0, 1, 2, 13, 14, 15],
+		[0, 1, 2, 3, 4, 5].UT(3, 2){|i| i+10} == [0, 1, 2, 13, 14, 5],
+		[0, 1, 2, 3, 4, 5].UT(3, 5){|i| i+10} == [0, 1, 2, 13, 14, 15, 16, 17],
+		[0, 1, 2, 3, 4, 5].UT(3..4){|i| i+10} == [0, 1, 2, 13, 14, 5],
+		[0, 1, 2, 3, 4, 5].UT(3...4){|i| i+10} == [0, 1, 2, 13, 4, 5],
+		[0, 1, 2, 3, 4, 5].UT(2..-2){|i| i+10} == [0, 1, 12, 13, 14, 5],
+		[0, 1, 2, 3, 4, 5].UT(2...-2){|i| i+10} == [0, 1, 12, 13, 4, 5],
+		"? ruby/test/ruby/test_array.rb:test_fill2",
+		 [].UT(0, 1, expr('longp')).raise?(ArgumentError),
+	coda
+	spec "#find_index",
+		"See also `#rindex`.",
+		{"(obj)" => Integer|value(nil)},
+		"Returns the index of the first object in `ary` such that the object is `==` to `obj`.  Returns `nil` if no match is found.",
+		{"{|item| block}" => Integer|value(nil)},
+		"Returns the index of the first object for which the block returns `true`. Returns `nil` if no match is found.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.index("b")           #=> 1
+			a.index("z")           #=> nil
+			a.index{|x| x == "b"}  #=> 1
+		RUBY
+	coda
+	spec "#first",
+		"See also `#last` for the opposite effect.",
+		{"first" => Object|value(nil)},
+		"Returns the first element of the array. If the array is empty, returns `nil`.",
+		{"(n)" => Array},
+		"Returns the first `n` elements of the array. If the array is empty, returns an empty array.",
+		<<~'RUBY'.code,
+			a = ["q", "r", "s", "t"]
+			a.first     #=> "q"
+			a.first(2)  #=> ["q", "r"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_first",
+		Array[3, 4, 5].UT == 3,
+		Array[].UT.nil?,
+		"? ruby/test/ruby/test_array.rb:test_first2",
+		[0].UT(2) == [0],
+		[0].UT(-1).raise?(ArgumentError),
+		"? ruby/test/ruby/test_array.rb:test_beg_end_0:1/6",
+		'x = [1, 2, 3, 4, 5]'.setup,
+		expr('x').UT == 1,
+		expr('x').UT(1) == [1],
+		expr('x').UT(3) == [1, 2, 3],
+	coda
+	spec "#flatten",
+		{"" => Array},
+		"Returns a new array that is a one-dimensional flattening of `self` (recursively). That is, for every element that is an array, extract its elements into the new array.",
+		{"(level)" => Array},
+		"The optional `level` argument determines the level of recursion to flatten.",
+		<<~'RUBY'.code,
+			s = [1, 2, 3]           #=> [1, 2, 3]
+			t = [4, 5, 6, [7, 8]]   #=> [4, 5, 6, [7, 8]]
+			a = [s, t, 9, 10]       #=> [[1, 2, 3], [4, 5, 6, [7, 8]], 9, 10]
+			a.flatten               #=> [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+			a = [1, 2, [3, [4, 5]]]
+			a.flatten(1)            #=> [1, 2, 3, [4, 5]]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_flatten",
+		<<~'RUBY'.setup,
+			a1 = Array[1, 2, 3]
+			a3 = Array[4, Array[5, 6]]
+		RUBY
+		expr('Array[a1, a3]').UT == Array[1, 2, 3, 4, 5, 6],
+		RECEIVER == expr('Array[a1, a3]'),
+		expr('Array[a1, Array[], a3]').UT == Array[1, 2, 3, 4, 5, 6],
+		Array[].UT == Array[],
+		Array[Array[Array[Array[],Array[]],Array[Array[]],Array[]],Array[Array[Array[]]]]
+			.UT == Array[],
+		"?? ruby-dev:31197",
+		[[]].UT("").raise?(TypeError),
+		<<~'RUBY'.setup,
+			a6 = Array[[1, 2], 3]
+			a6.taint
+			a8 = Array[[1, 2], 3]
+		RUBY
+		expr('a6').UT.tainted?,
+		expr('a8').UT(0) == expr('a8'),
+		RETURN.equal?(expr('a8')).!,
+	coda
+	spec "#flatten!",
+		{"" => Array|value(nil)},
+		"Flattens `self` in place. Returns `nil` if no modifications were made (i.e., the array contains no subarrays.",
+		{"(level)" => Array|value(nil)},
+		"The optional `level` argument determines the level of recursion to flatten.",
+		<<~'RUBY'.code,
+			a = [1, 2, [3, [4, 5]]]
+			a.flatten!   #=> [1, 2, 3, 4, 5]
+			a.flatten!   #=> nil
+			a            #=> [1, 2, 3, 4, 5]
+			a = [1, 2, [3, [4, 5]]]
+			a.flatten!(1) #=> [1, 2, 3, [4, 5]]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_flatten!",
+		<<~'RUBY'.setup,
+			a1 = Array[1, 2, 3]
+			a3 = Array[4, Array[5, 6]]
+			a5 = Array[a1, Array[], a3]
+		RUBY
+		expr('Array[a1, a3]').UT == Array[1, 2, 3, 4, 5, 6],
+		RECEIVER == Array[1, 2, 3, 4, 5, 6],
+		"?? ruby-core:23382",
+		expr('a5').UT == Array[1, 2, 3, 4, 5, 6],
+		expr('a5').UT(0).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5, 6],
+		Array[].UT.nil?,
+		Array[Array[Array[Array[],Array[]],Array[Array[]],Array[]],Array[Array[Array[]]]]
+			.UT == Array[],
+		"?? ruby-core:23382",
+		Array[].UT(0).nil?,
+	coda
+	spec "#frozen?",
+		"See also `Object#frozen?`",
+		{"" => value(true)|value(false)},
+		"Returns `true` if this array is frozen (or temporarily frozen while being sorted).",
+	coda
+	spec "#hash",
+		{"" => Fixnum},
+		"Computes a hash-code for this array. Two arrays with the same content will have the same hash code (and will compare using `eql?`).",
+		"? ruby/test/ruby/test_array.rb:test_hash",
+		Array["cat", "dog"].UT == expr("Array[\"cat\", \"dog\"]").hash,
+		Array["dog", "cat"].UT == expr("Array[\"cat\", \"dog\"]").hash,
+		"?? bug9231 = ruby-core:58993 Bug #9231",
+		Array[].UT != expr("false").hash,
+		"? ruby/test/ruby/test_array.rb:test_0_literal:3/8",
+		[1, 2].UT == expr("[1, 2]").hash,
+	coda
+	spec "#include?",
+		{"(object)" => value(true)|value(false)},
+		"Returns `true` if the given object is present in `self` (that is, if any element `==` `object`), otherwise returns `false`.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.include?("b")   #=> true
+			a.include?("z")   #=> false
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_include?",
+		'a = Array["cat", 99, /a/, Array[1, 2, 3]]'.setup,
+		expr('a').UT("cat") == true,
+		expr('a').UT(99) == true,
+		expr('a').UT(/a/) == true,
+		expr('a').UT([1,2,3]) == true,
+		expr('a').UT("ca") == false,
+		expr('a').UT([1,2]) == false,
+	coda
+	spec "#index",
+		"See also `#rindex`.",
+		{"(obj)" => Integer|value(nil)},
+		"Returns the index of the first object in `self` such that the object is `==` to `obj`.",
+		{"{|item| block}" => Integer|value(nil)},
+		"Returns the index of the first object for which the block returns `true`. Returns `nil` if no match is found.",
+		{"index" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.index("b")           #=> 1
+			a.index("z")           #=> nil
+			a.index{|x| x == "b"}  #=> 1
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_index",
+		'a = Array["cat", 99, /a/, 99, Array[1, 2, 3]]'.setup,
+		expr('a').UT("cat").zero?,
+		expr('a').UT(99) == 1,
+		expr('a').UT([1,2,3]) == 4,
+		expr('a').UT("ca").nil?,
+		expr('a').UT([1,2]).nil?,
+		expr('a').UT(99){|x| x == "cat"} == 1,
+	coda
+	spec "#initialize_copy",
+		{"(other_ary)" => Array},
+		"Replaces the contents of `self` with the contents of `other_ary`, truncating or expanding if necessary.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d", "e"]
+			a.replace(["x", "y", "z"])   #=> ["x", "y", "z"]
+			a                            #=> ["x", "y", "z"]
+		RUBY
+	coda
+	spec "#insert",
+		{"(index, obj...)" => Array},
+		"Inserts the given values before the element with the given index.",
+		"Negative indices count backwards from the end of the array, where `-1` is the last element.",
+		<<~'RUBY'.code,
+			a = %w{a b c d}
+			a.insert(2, 99)         #=> ["a", "b", 99, "c", "d"]
+			a.insert(-2, 1, 2, 3)   #=> ["a", "b", 99, "c", 1, 2, 3, "d"]
+		RUBY
+	coda
+	spec "#inspect",
+		"Also aliased as: `to_s`",
+		{"" => String},
+		"Creates a string representation of `self`.",
+		<<~'RUBY'.code,
+			["a", "b", "c"].to_s     #=> "[\"a\", \"b\", \"c\"]"
+		RUBY
+	coda
+	spec "#join",
+		{"(separator=$,)" => String},
+		"Returns a string created by converting each element of the array to a string, separated by the given `separator`. If the `separator` is `nil`, it uses current `$,`. If both the `separator` and `$,` are `nil`, it uses empty string.",
+		<<~'RUBY'.code,
+			["a", "b", "c"].join        #=> "abc"
+			["a", "b", "c"].join("-")   #=> "a-b-c"
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_join",
+		<<~'RUBY'.setup,
+			$, = ""
+			a = Array[]
+		RUBY
+		expr('a').UT == "",
+		expr('a').UT(",")== "",
+		expr('a').UT.encoding == Encoding::US_ASCII,
+		<<~'RUBY'.setup,
+			$, = ""
+			a = Array[1, 2]
+		RUBY
+		expr('a').UT == "12",
+		expr('a').UT(nil) == "12",
+		expr('a').UT(",") == "1,2",
+		<<~'RUBY'.setup,
+			$, = ""
+			a = Array[1, 2, 3]
+		RUBY
+		expr('a').UT == "123",
+		expr('a').UT(nil) == "123",
+		expr('a').UT(",") == "1,2,3",
+		<<~'RUBY'.setup,
+			$, = ":"
+			a = Array[1, 2, 3]
+		RUBY
+		expr('a').UT == "1:2:3",
+		expr('a').UT(nil) == "1:2:3",
+		expr('a').UT(",") == "1,2,3",
+		<<~'RUBY'.setup,
+			$, = ""
+			a = Array[1, 2, 3]
+			a.taint
+		RUBY
+		expr('a').UT.tainted?,
+		"?? bug5902 ruby-core:42161",
+		'sep = ":".taint'.setup,
+		Array[].UT(expr('sep')).tainted? == false,
+		Array[1].UT(expr('sep')).tainted? == false,
+		Array[1, 2].UT(expr('sep')).tainted?,
+		<<~'RUBY'.setup,
+			e = "".force_encoding("EUC-JP")
+			u = "".force_encoding("UTF-8")
+		RUBY
+		[[]].UT.encoding == Encoding::US_ASCII,
+		expr('[1, [u]]').UT.encoding == Encoding::US_ASCII,
+		expr('[u, [e]]').UT.encoding == Encoding::UTF_8,
+		expr('[u, [1]]').UT.encoding == Encoding::UTF_8,
+		"?? bug5379 ruby-core:39776",
+		expr('[[], u, nil]').UT.encoding == Encoding::US_ASCII,
+		[[], "\u3042", nil].UT.encoding == Encoding::UTF_8,
+		'$, = nil'.setup,
+	coda
+	spec "#keep_if",
+		"See also `#select!`",
+		{"{|item| block}" => Array},
+		"Deletes every element of self for which the given block evaluates to `false`.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = %w{a b c d e f}
+			a.keep_if{|v| v =~ /[aeiou]/}  #=> ["a", "e"]
+		RUBY
+	coda
+	spec "#last",
+		"See also `#first` for the opposite effect.",
+		{"" => Object|value(nil)},
+		"Returns the last element of `self`. If the array is empty, returns `nil`.",
+		{"(n)" => Array},
+		"Returns the last element(s) of `self`.",
+		<<~'RUBY'.code,
+			a = ["w", "x", "y", "z"]
+			a.last     #=> "z"
+			a.last(2)  #=> ["y", "z"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_last",
+		Array[].UT.nil?,
+		Array[1].UT == 1,
+		'a = Array[*(3..99).to_a]'.setup,
+		expr('a').UT == 99,
+		"? ruby/test/ruby/test_array.rb:test_beg_end_0:2/6",
+		'x = [1, 2, 3, 4, 5]'.setup,
+		expr('x').UT == 5,
+		expr('x').UT(1) == [5],
+		expr('x').UT(3) == [3, 4, 5],
+	coda
+	spec "#length",
+		"Also aliased as: `size`",
+		{"" => Integer},
+		"Returns the number of elements in `self`. May be zero.",
+		<<~'RUBY'.code,
+			[1, 2, 3, 4, 5].length   #=> 5
+			[].length                #=> 0
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_length",
+		Array[].UT.zero?,
+		Array[1].UT == 1,
+		Array[1, nil].UT == 2,
+		Array[nil, 1].UT == 2,
+		expr('Array[*(0..233).to_a]').UT == 234,
+	coda
+	spec "#map",
+		"See also `Enumerable#collect`.",
+		{"{|item| block}" => Array},
+		"Invokes the given block once for each element of `self`.",
+		"Creates a new array containing the values returned by the block.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.collect{|x| x + "!"}         #=> ["a!", "b!", "c!", "d!"]
+			a.map.with_index{|x, i| x * i} #=> ["", "b", "cc", "ddd"]
+			a                              #=> ["a", "b", "c", "d"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_collect",
+		Array[1, "cat", 1..1].UT{|e| e.class} == [Fixnum, String, Range],
+		Array[1, "cat", 1..1].UT{99} == [99, 99, 99],
+		Array[].UT{99} == [],
+		Array[1, 2, 3].UT.kind_of?(Enumerator),
+	coda
+	spec "#map!",
+		"See also `Enumerable#collect`.",
+		{"{|item| block}" => Array},
+		"Invokes the given block once for each element of `self`, replacing the element with the value returned by the block.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.map!{|x| x + "!"}
+			a #=>  ["a!", "b!", "c!", "d!"]
+			a.collect!.with_index{|x, i| x[0...i]}
+			a #=>  ["", "b", "c!", "d!"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_collect!",
+		Array[1, "cat", 1..1].UT{|e| e.class} == [Fixnum, String, Range],
+		RECEIVER == [Fixnum, String, Range],
+		Array[1, "cat", 1..1].UT{99} == [99, 99, 99],
+		RECEIVER == [99, 99, 99],
+		Array[].UT{99} == [],
+		RECEIVER == [],
+		"? ruby/test/ruby/test_array.rb:test_map!",
+		Array[1, "cat", 1..1].UT{|e| e.class} == Array[Fixnum, String, Range],
+		RECEIVER == Array[Fixnum, String, Range],
+		Array[1, "cat", 1..1].UT{99} == Array[99, 99, 99], 
+		RECEIVER == Array[99, 99, 99],
+		Array[].UT{99} == Array[],
+		RECEIVER == Array[],
+	coda
+	spec "#pack",
+		"See also `String#unpack`.",
+		{"(aTemplateString)" => String},
+		"Packs the contents of `self` into a binary sequence according to the directives in `aTemplateString` (see the table below) Directives `A`, `a`, and `Z` may be followed by a count, which gives the width of the resulting field. The remaining directives also may take a count, indicating the number of array elements to convert. If the count is an asterisk (`*`), all remaining array elements will be converted. Any of the directives `sSiIlL` may be followed by an underscore (`_`) or exclamation mark (`!`) to use the underlying platform’s native size for the specified type; otherwise, they use a platform-independent size. Spaces are ignored in the template string.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			n = [65, 66, 67]
+			a.pack("A3A3A3")   #=> "a  b  c  "
+			a.pack("a3a3a3")   #=> "a\000\000b\000\000c\000\000"
+			n.pack("ccc")      #=> "ABC"
+		RUBY
+		"Directives for pack.",
+		<<~'RUBY'.code,
+			Integer      | Array   |
+			Directive    | Element | Meaning
+			---------------------------------------------------------------------------
+			   C         | Integer | 8-bit unsigned (unsigned char)
+			   S         | Integer | 16-bit unsigned, native endian (uint16_t)
+			   L         | Integer | 32-bit unsigned, native endian (uint32_t)
+			   Q         | Integer | 64-bit unsigned, native endian (uint64_t)
+			             |         |
+			   c         | Integer | 8-bit signed (signed char)
+			   s         | Integer | 16-bit signed, native endian (int16_t)
+			   l         | Integer | 32-bit signed, native endian (int32_t)
+			   q         | Integer | 64-bit signed, native endian (int64_t)
+			             |         |
+			   S_, S!    | Integer | unsigned short, native endian
+			   I, I_, I! | Integer | unsigned int, native endian
+			   L_, L!    | Integer | unsigned long, native endian
+			   Q_, Q!    | Integer | unsigned long long, native endian (ArgumentError
+			             |         | if the platform has no long long type.)
+			             |         | (Q_ and Q! is available since Ruby 2.1.)
+			             |         |
+			   s_, s!    | Integer | signed short, native endian
+			   i, i_, i! | Integer | signed int, native endian
+			   l_, l!    | Integer | signed long, native endian
+			   q_, q!    | Integer | signed long long, native endian (ArgumentError
+			             |         | if the platform has no long long type.)
+			             |         | (q_ and q! is available since Ruby 2.1.)
+			             |         |
+			   S> L> Q>  | Integer | same as the directives without ">" except
+			   s> l> q>  |         | big endian
+			   S!> I!>   |         | (available since Ruby 1.9.3)
+			   L!> Q!>   |         | "S>" is same as "n"
+			   s!> i!>   |         | "L>" is same as "N"
+			   l!> q!>   |         |
+			             |         |
+			   S< L< Q<  | Integer | same as the directives without "<" except
+			   s< l< q<  |         | little endian
+			   S!< I!<   |         | (available since Ruby 1.9.3)
+			   L!< Q!<   |         | "S<" is same as "v"
+			   s!< i!<   |         | "L<" is same as "V"
+			   l!< q!<   |         |
+			             |         |
+			   n         | Integer | 16-bit unsigned, network (big-endian) byte order
+			   N         | Integer | 32-bit unsigned, network (big-endian) byte order
+			   v         | Integer | 16-bit unsigned, VAX (little-endian) byte order
+			   V         | Integer | 32-bit unsigned, VAX (little-endian) byte order
+			             |         |
+			   U         | Integer | UTF-8 character
+			   w         | Integer | BER-compressed integer
+			
+			Float        |         |
+			Directive    |         | Meaning
+			---------------------------------------------------------------------------
+			   D, d      | Float   | double-precision, native format
+			   F, f      | Float   | single-precision, native format
+			   E         | Float   | double-precision, little-endian byte order
+			   e         | Float   | single-precision, little-endian byte order
+			   G         | Float   | double-precision, network (big-endian) byte order
+			   g         | Float   | single-precision, network (big-endian) byte order
+			
+			String       |         |
+			Directive    |         | Meaning
+			---------------------------------------------------------------------------
+			   A         | String  | arbitrary binary string (space padded, count is width)
+			   a         | String  | arbitrary binary string (null padded, count is width)
+			   Z         | String  | same as ``a'', except that null is added with *
+			   B         | String  | bit string (MSB first)
+			   b         | String  | bit string (LSB first)
+			   H         | String  | hex string (high nibble first)
+			   h         | String  | hex string (low nibble first)
+			   u         | String  | UU-encoded string
+			   M         | String  | quoted printable, MIME encoding (see RFC2045)
+			   m         | String  | base64 encoded string (see RFC 2045, count is width)
+			             |         | (if count is 0, no line feed are added, see RFC 4648)
+			   P         | String  | pointer to a structure (fixed-length string)
+			   p         | String  | pointer to a null-terminated string
+			
+			Misc.        |         |
+			Directive    |         | Meaning
+			---------------------------------------------------------------------------
+			   @         | ---     | moves to absolute position
+			   X         | ---     | back up a byte
+			   x         | ---     | null byte
+		RUBY
+		[
+			[" Integer Directive ", " Array Element ", " Meaning "],
+			["C ", "Integer ", "8-bit unsigned (unsigned char)"],
+			["S ", "Integer ", "16-bit unsigned, native endian (uint16_t)"],
+			["L ", "Integer ", "32-bit unsigned, native endian (uint32_t)"],
+			["Q ", "Integer ", "64-bit unsigned, native endian (uint64_t)"],
+			["c ", "Integer ", "8-bit signed (signed char)"],
+			["s ", "Integer ", "16-bit signed, native endian (int16_t)"],
+			["l ", "Integer ", "32-bit signed, native endian (int32_t)"],
+			["q ", "Integer ", "64-bit signed, native endian (int64_t)"],
+			["S_, S! ", "Integer ", "unsigned short, native endian"],
+			["I, I_, I! ", "Integer ", "unsigned int, native endian"],
+			["L_, L! ", "Integer ", "unsigned long, native endian"],
+			["Q_, Q! ", "Integer ", "unsigned long long, native endian (ArgumentError
+				if the platform has no long long type. Q_ and Q! are available since Ruby 2.1.)"],
+			["s_, s! ", "Integer ", "signed short, native endian"],
+			["i, i_, i! ", "Integer ", "signed int, native endian"],
+			["l_, l! ", "Integer ", "signed long, native endian"],
+			["q_, q! ", "Integer ", "signed long long, native endian (ArgumentError
+				if the platform has no long long type. q_ and q! are available since Ruby 2.1.)"],
+			["S> L> Q> ", "Integer ", "same as the directives without \">\" except"],
+			["s> l> q> ", "", "big endian"],
+		],
+=begin
+		],
+			S!> I!>	|				| (available since Ruby 1.9.3)
+			L!> Q!>	|				| "S>" is same as "n"
+			s!> i!>	|				| "L>" is same as "N"
+			l!> q!>	|				|
+								|				|
+			S< L< Q<	| Integer | same as the directives without "<" except
+			s< l< q<	|				| little endian
+			S!< I!<	|				| (available since Ruby 1.9.3)
+			L!< Q!<	|				| "S<" is same as "v"
+			s!< i!<	|				| "L<" is same as "V"
+			l!< q!<	|				|
+								|				|
+			n				| Integer | 16-bit unsigned, network (big-endian) byte order
+			N				| Integer | 32-bit unsigned, network (big-endian) byte order
+			v				| Integer | 16-bit unsigned, VAX (little-endian) byte order
+			V				| Integer | 32-bit unsigned, VAX (little-endian) byte order
+								|				|
+			U				| Integer | UTF-8 character
+			w				| Integer | BER-compressed integer
+		
+		Float				|				|
+		Directive		|				| Meaning
+		---------------------------------------------------------------------------
+			D, d			| Float	| double-precision, native format
+			F, f			| Float	| single-precision, native format
+			E				| Float	| double-precision, little-endian byte order
+			e				| Float	| single-precision, little-endian byte order
+			G				| Float	| double-precision, network (big-endian) byte order
+			g				| Float	| single-precision, network (big-endian) byte order
+		
+		String			|				|
+		Directive		|				| Meaning
+		---------------------------------------------------------------------------
+			A				| String	| arbitrary binary string (space padded, count is width)
+			a				| String	| arbitrary binary string (null padded, count is width)
+			Z				| String	| same as ``a'', except that null is added with *
+			B				| String	| bit string (MSB first)
+			b				| String	| bit string (LSB first)
+			H				| String	| hex string (high nibble first)
+			h				| String	| hex string (low nibble first)
+			u				| String	| UU-encoded string
+			M				| String	| quoted printable, MIME encoding (see RFC2045)
+			m				| String	| base64 encoded string (see RFC 2045, count is width)
+								|				| (if count is 0, no line feed are added, see RFC 4648)
+			P				| String	| pointer to a structure (fixed-length string)
+			p				| String	| pointer to a null-terminated string
+		
+		Misc.				|				|
+		Directive		|				| Meaning
+		---------------------------------------------------------------------------
+			@				| ---		| moves to absolute position
+			X				| ---		| back up a byte
+			x				| ---		| null byte
+=end
+		"? ruby/test/ruby/test_array.rb:test_pack",
+		'a = Array[*%w(cat wombat x yy)]'.setup,
+		expr('a').UT("A3A3A3A3") == "catwomx  yy ",
+		expr('a').UT("A*") == "cat",
+		expr('a').UT("A3@1A3@2A3A3") == "cwx  yy ",
+		expr('a').UT("a3a3a3a3") == "catwomx\000\000yy\000",
+		expr('a').UT("a*") == "cat",
+		expr('a').UT("a2") == "ca",
+		expr('a').UT("a5") == "cat\000\000",
+		Array["01100001"].UT("B8") == "\x61",
+		Array["01100001"].UT("B*") == "\x61",
+		Array["0110000100110111"].UT("B8") == "\x61",
+		Array["0110000100110111"].UT("B16") == "\x61\x37",
+		Array["01100001", "00110111"].UT("B8B8") == "\x61\x37",
+		Array["01100001"].UT("B4") == "\x60",
+		Array["01100001"].UT("B2") == "\x40",
+		Array["01100001"].UT("b8") == "\x86",
+		Array["01100001"].UT("b*") == "\x86",
+		Array["0110000100110111"].UT("b8") == "\x86",
+		Array["0110000100110111"].UT("b16") == "\x86\xec",
+		Array["01100001", "00110111"].UT("b8b8") == "\x86\xec",
+		Array["01100001"].UT("b4") == "\x06",
+		Array["01100001"].UT("b2") == "\x02",
+		Array[65, 66, 67].UT("C3") == "ABC",
+		Array[-1, 66, 67].UT("C*") == "\377BC",
+		Array[65, 66, 67].UT("c3") == "ABC",
+		Array[-1, 66, 67].UT("c*") == "\377BC",
+		Array["4142", "0a", "12"].UT("H4H2H1") == "AB\n\x10",
+		Array["1424", "a0", "21"].UT("h4h2h1") == "AB\n\x02",
+		Array["abc\002def", "cat", "\001"].UT("M9M3M4") == "abc=02def=\ncat=\n=01=\n",
+		Array["hello\n"].UT("m") == "aGVsbG8K\n",
+		Array["hello\nhello\n"].UT("u") == ",:&5L;&\\*:&5L;&\\*\n",
+		Array[0xa9, 0x42, 0x2260].UT("U*") == "\u{a9 42 2260}",
+		"?? Need the expression in here to force `ary[5]` to be numeric.  This avoids `test2` failing because `ary2` goes str->numeric->str and `ary` does not.",
+		<<~'RUBY'.setup,
+			format = "c2x5CCxsdils_l_a6"
+			ary = [1, -100, 127, 128, 32767, 987.654321098/100.0, 12345, 123456, -32767, -123456,
+				"abcdef"]
+		RUBY
+		expr('ary').UT(expr('format')) !~ /def/,
+		RETURN.unpack(expr("format")).length == expr('ary').length,
+		RETURN.unpack(expr("format")).join(":") == expr('ary').join(':'),
+	coda
+	spec "#permutation",
+		"The implementation makes no guarantees about the order in which the permutations are yielded.",
+		{"(n){|p| block}" => Array},
+		"Yields all permutations of length `n` of the elements of the array, then return the array itself.",
+		{"{|p| block}" => Array},
+		"Yields all permutations of all elements.",
+		{"(n)" => Enumerator},
+		{"" => Enumerator},
+		"Examples:",
+		<<~'RUBY'.code,
+			a = [1, 2, 3]
+			a.permutation.to_a    #=> [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
+			a.permutation(1).to_a #=> [[1],[2],[3]]
+			a.permutation(2).to_a #=> [[1,2],[1,3],[2,1],[2,3],[3,1],[3,2]]
+			a.permutation(3).to_a #=> [[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]]
+			a.permutation(0).to_a #=> [[]] # one permutation of length 0
+			a.permutation(4).to_a #=> []   # no permutations of length 4
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_permutation",
+		'a = Array[1,2,3]'.setup,
+		expr('a').UT(0).to_a == Array[[]],
+		expr('a').UT(1).to_a.sort == Array[[1],[2],[3]],
+		expr('a').UT(2).to_a.sort == Array[[1,2],[1,3],[2,1],[2,3],[3,1],[3,2]],
+		expr('a').UT(3)
+			.sort.to_a == Array[[1,2,3],[1,3,2],[2,1,3],[2,3,1],[3,1,2],[3,2,1]],
+		expr('a').UT(4).to_a == Array[],
+		expr('a').UT(-1).to_a == Array[],
+		'a = "edcba".each_char.to_a'.setup,
+		expr('a').UT(5).sort == expr("'abcde'").each_char.to_a.permutation(5).sort,
+		Array[].UT(0).to_a == Array[[]],
+		<<~'RUBY'.setup,
+			a = Array[1, 2, 3, 4]
+			b = Array[]
+		RUBY
+		expr('a').UT{|x| expr('b') << x; expr('a').replace(Array[9, 8, 7, 6])} == Array[9, 8, 7, 6],
+		Array[1, 2, 3, 4].UT.to_a == expr("b"),
+		"?? bug3708 ruby-dev:42067",
+		Array[0, 1, 2, 3, 4][1, 4].UT.to_a == expr("b"),
+		"? bug9932 ruby-core:63103 Bug #9932",
+=begin
+		 assert_separately([], <<~"end;") # do
+			 assert_nothing_raised(SystemStackError) do
+				Array.new(100_000, nil).UT{break :ok} == :ok
+			 end
+		 end
+=end
+	coda
+	spec "#pop",
+		"See also `#push` for the opposite effect.",
+		{"" => Object|value(nil)},
+		"Removes the last element from `self` and returns it, or `nil` if the array is empty.",
+		{"(n)" => Array},
+		"Returns an array of the last `n` elements (or less) just like `array.slice!(-n, n)` does.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.pop     #=> "d"
+			a.pop(2)  #=> ["b", "c"]
+			a         #=> ["a"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_pop",
+		'a = Array["cat", "dog"]'.setup,
+		expr('a').UT == "dog",
+		RECEIVER == Array["cat"],
+		expr('a').UT == "cat",
+		RECEIVER == Array[],
+		expr('a').UT.nil?,
+		RECEIVER == Array[],
+		"? ruby/test/ruby/test_array.rb:test_beg_end_0:5/6",
+		'x = [1, 2, 3, 4, 5]'.setup,
+		expr('x').UT == 5,
+		expr('x').UT(2) == [3, 4],
+		RECEIVER == [1, 2],
+	coda
+	spec "#product",
+		{"(other_ary, ...)" => Array},
+		"Returns an array of all combinations of elements from all arrays.",
+		"The length of the returned array is the product of the length of `self` and the argument arrays.",
+		{"(other_ary, ...){|p| block}" => Array},
+		"Product will yield all combinations and return `self`.",
+		<<~'RUBY'.code,
+			[1,2,3].product([4,5])     #=> [[1,4],[1,5],[2,4],[2,5],[3,4],[3,5]]
+			[1,2].product([1,2])       #=> [[1,1],[1,2],[2,1],[2,2]]
+			[1,2].product([3,4],[5,6]) #=> [[1,3,5],[1,3,6],[1,4,5],[1,4,6],
+			                           #     [2,3,5],[2,3,6],[2,4,5],[2,4,6]]
+			[1,2].product()            #=> [[1],[2]]
+			[1,2].product([])          #=> []
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_product",
+		Array[1,2,3].UT([4,5]) == Array[[1,4],[1,5],[2,4],[2,5],[3,4],[3,5]],
+		Array[1,2].UT([1,2]) == Array[[1,1],[1,2],[2,1],[2,2]],
+		Array[1,2].UT([3,4],[5,6]) ==
+			Array[[1,3,5],[1,3,6],[1,4,5],[1,4,6], [2,3,5],[2,3,6],[2,4,5],[2,4,6]],
+		Array[1,2].UT == Array[[1],[2]],
+		Array[1,2].UT([]) == Array[],
+		"?? bug3394 = ruby-dev:41540",
+=begin
+		acc = []
+		EnvUtil.under_gc_stress{[1,2].UT([3,4,5],[6,8]){|array| acc << array}}
+		acc == [[1, 3, 6], [1, 3, 8], [1, 4, 6], [1, 4, 8], [1, 5, 6], [1, 5, 8],
+		[2, 3, 6], [2, 3, 8], [2, 4, 6], [2, 4, 8], [2, 5, 6], [2, 5, 8]],
+		def (o = Object.new).to_ary; GC.start; [3,4] end
+		[1,2].UT(*[o]*10) ==
+		[1,2].product([3,4], [3,4], [3,4], [3,4], [3,4], [3,4], [3,4], [3,4], [3,4], [3,4]),
+		'a = []'.setup,
+		[1, 2].UT([0, 1, 2, 3, 4][1, 4]){|x| expr("a") << x}.succeed?,
+		expr('a').all?{|x| assert_not_include(x, 0)}
+=end
+	coda
+	spec "#push",
+		"See also `#pop` for the opposite effect.",
+		{"(obj, ...)" => Array},
+		"Append — Pushes the given object(s) on to the end of this array. This expression returns the array itself, so several appends may be chained together.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.push("d", "e", "f")
+			        #=> ["a", "b", "c", "d", "e", "f"]
+			[1, 2, 3,].push(4).push(5)
+			        #=> [1, 2, 3, 4, 5]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_push",
+		'a = Array[1, 2, 3]'.setup,
+		expr('a').UT(4, 5) == Array[1, 2, 3, 4, 5],
+		expr('a').UT(nil) == Array[1, 2, 3, 4, 5, nil],
+		expr('a').UT.succeed?,
+		RECEIVER == Array[1, 2, 3, 4, 5, nil],
+		expr('a').UT(6, 7).succeed?,
+		RECEIVER == Array[1, 2, 3, 4, 5, nil, 6, 7],
+		"? ruby/test/ruby/test_array.rb:test_beg_end_0:6/6",
+		'x = [1, 2]'.setup,
+		expr('x').UT(3, 4) == [1, 2, 3, 4],
+		expr('x').UT(5) == [1, 2, 3, 4, 5],
+		RECEIVER == [1, 2, 3, 4, 5],
+	coda
+	spec "#rassoc",
+		"See also `delete_if`.",
+		{"(obj)" => Array|value(nil)},
+		"Searches through the array whose elements are also arrays.",
+		"Compares `obj` with the second element of each contained array using `obj.==`.",
+		"Returns the first contained array that matches `obj`.",
+		<<~'RUBY'.code,
+			a = [[1, "one"], [2, "two"], [3, "three"], ["ii", "two"]]
+			a.rassoc("two")    #=> [2, "two"]
+			a.rassoc("four")   #=> nil
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_rassoc",
+		<<~'RUBY'.setup,
+			a1 = Array[*%w(cat feline)]
+			a2 = Array[*%w(dog canine)]
+			a3 = Array[*%w(mule asinine)]
+			a = Array[a1, a2, a3]
+		RUBY
+		expr('a').UT("feline") == expr('a1'),
+		expr('a').UT("asinine") == expr('a3'),
+		expr('a').UT("dog").nil?,
+		expr('a').UT("mule").nil?,
+		expr('a').UT(1..2).nil?,
+	coda
+	spec "#reject",
+		"See also `#delete_if`",
+		{"{|item| block}" => Array},
+		"Returns a new array containing the items in `self` for which the given block is not true.",
+		{"" => Enumerator},
+		"? ruby/test/ruby/test_array.rb:test_reject",
+		[0, 1, 2, 3].UT{|x| (x % 2).zero?} == [1, 3],
+	coda
+	spec "#reject!",
+		"See also `Enumerable#reject` and `#delete_if`.",
+		{"{|item| block}" => Array},
+		"Equivalent to `#delete_if`, deleting elements from `self` for which the block evaluates to `true`, but returns `nil` if no changes were made.",
+		"The array is changed instantly every time the block is called, not after the iteration is over.",
+		{"{|item| block}" => NilClass},
+		{"" => Enumerator},
+		"? ruby/test/ruby/test_array.rb:test_reject!",
+		Array[1, 2, 3, 4, 5].UT{false}.nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		'a = Array[1, 2, 3, 4, 5]'.setup,
+		expr('a').UT{true}== expr('a'),
+		RECEIVER == Array[],
+		'a = Array[1, 2, 3, 4, 5]'.setup,
+		expr('a').UT{|i| i > 3} == expr('a'),
+		RECEIVER == Array[1, 2, 3],
+		"?? bug2545 ruby-core:27366",
+		'a = Array[5, 6, 7, 8, 9, 10]'.setup,
+		expr('a').UT{|i| break i if i > 8; expr('a')[0] == i || true if i < 7} == 9,
+		RECEIVER == Array[7, 8, 9, 10],
+	coda
+	spec "#repeated_combination",
+		{"(n){|c| block}" => Array},
+		"When invoked with a block, yields all repeated combinations of length `n` of elements from the array and then returns the array itself.",
+		"The implementation makes no guarantees about the order in which the repeated combinations are yielded.",
+		{"(n)" => Enumerator},
+		"If no block is given, an `Enumerator` is returned instead.",
+		"Examples:",
+		<<~'RUBY'.code,
+			a = [1, 2, 3]
+			a.repeated_combination(1).to_a  #=> [[1], [2], [3]]
+			a.repeated_combination(2).to_a  #=> [[1,1],[1,2],[1,3],[2,2],[2,3],[3,3]]
+			a.repeated_combination(3).to_a  #=> [[1,1,1],[1,1,2],[1,1,3],[1,2,2],[1,2,3],
+			                                #    [1,3,3],[2,2,2],[2,2,3],[2,3,3],[3,3,3]]
+			a.repeated_combination(4).to_a  #=> [[1,1,1,1],[1,1,1,2],[1,1,1,3],[1,1,2,2],[1,1,2,3],
+			                                #    [1,1,3,3],[1,2,2,2],[1,2,2,3],[1,2,3,3],[1,3,3,3],
+			                                #    [2,2,2,2],[2,2,2,3],[2,2,3,3],[2,3,3,3],[3,3,3,3]]
+			a.repeated_combination(0).to_a  #=> [[]] # one combination of length 0
+		RUBY
+	coda
+	spec "#repeated_permutation",
+		{"(n){|p| block}" => Array},
+		"When invoked with a block, yield all repeated permutations of length `n` of the elements of the array, then return the array itself.",
+		"The implementation makes no guarantees about the order in which the repeated permutations are yielded.",
+		{"(n)" => Enumerator},
+		"Examples:",
+		<<~'RUBY'.code,
+			a = [1, 2]
+			a.repeated_permutation(1).to_a  #=> [[1], [2]]
+			a.repeated_permutation(2).to_a  #=> [[1,1],[1,2],[2,1],[2,2]]
+			a.repeated_permutation(3).to_a  #=> [[1,1,1],[1,1,2],[1,2,1],[1,2,2],
+			                                #    [2,1,1],[2,1,2],[2,2,1],[2,2,2]]
+			a.repeated_permutation(0).to_a  #=> [[]] # one permutation of length 0
+		RUBY
+	coda
+	spec "#replace",
+		{"(other_ary)" => Array},
+		"Replaces the contents of `self` with the contents of `other_ary`, truncating or expanding if necessary.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d", "e"]
+			a.replace(["x", "y", "z"])   #=> ["x", "y", "z"]
+			a                              #=> ["x", "y", "z"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_replace_shared_ary",
+		<<~'RUBY'.setup,
+			a = [1] * 100
+			b = []
+		RUBY
+		expr('b').UT(expr('a')),
+		expr('a').UT([1, 2, 3]).succeed?,
+		RECEIVER == [1, 2, 3],
+#		expr('b') == [1] * 100,
+	coda
+	spec "#reverse",
+		{"" => Array},
+		"Returns a new array containing `self`‘s elements in reverse order.",
+		<<~'RUBY'.code,
+			["a", "b", "c"].reverse   #=> ["c", "b", "a"]
+			[1].reverse               #=> [1]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_reverse",
+		Array[*%w(dog cat bee ant)].UT == Array[*%w(ant bee cat dog)],
+		RECEIVER == Array[*%w(dog cat bee ant)],
+		Array[].UT == Array[],
+	coda
+	spec "#reverse!",
+		{"" => Array},
+		"Reverses `self` in place.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.reverse!       #=> ["c", "b", "a"]
+			a                #=> ["c", "b", "a"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_reverse!",
+		Array[*%w(dog cat bee ant)].UT == Array[*%w(ant bee cat dog)],
+		RECEIVER == Array[*%w(ant bee cat dog)],
+		"?? Array#reverse always returns self.",
+		Array[].UT == Array[],
+	coda
+	spec "#reverse_each",
+		{"{|item| block}" => Array},
+		{"" => Enumerator},
+		"Same as `#each`, but traverses `self` in reverse order.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.reverse_each{|x| print x, " "}
+		RUBY
+		"produces:",
+		<<~'RUBY'.code,
+			c b a
+		RUBY
+	coda
+	spec "#rindex",
+		"See also `#index`.",
+		{"(obj)" => Integer|value(nil)},
+		"Returns the index of the last object in `self` `==` to `obj`. Returns `nil` if no match is found.",
+		{"{|item| block}" => Integer|value(nil)},
+		"Returns the index of the first object for which the block returns true, starting from the last object.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = ["a", "b", "b", "b", "c"]
+			a.rindex("b")          #=> 3
+			a.rindex("z")          #=> nil
+			a.rindex{|x| x == "b"} #=> 3
+		RUBY
+	coda
+	spec "#rotate",
+		{"(count=1)" => Array},
+		"Returns a new array by rotating `self` so that the element at count is the first element of the new array.",
+		"If count is negative then it rotates in the opposite direction, starting from the end of `self` where `-1` is the last element.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.rotate         #=> ["b", "c", "d", "a"]
+			a                #=> ["a", "b", "c", "d"]
+			a.rotate(2)      #=> ["c", "d", "a", "b"]
+			a.rotate(-3)     #=> ["b", "c", "d", "a"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_rotate",
+		'a = [1,2,3,4,5]'.setup,
+		expr('a').UT == [2,3,4,5,1],
+		expr('a').UT(-1) == [5,1,2,3,4],
+		expr('a').UT(2) == [3,4,5,1,2],
+		expr('a').UT(-2) == [4,5,1,2,3],
+		expr('a').UT(13) == [4,5,1,2,3],
+		expr('a').UT(-13) == [3,4,5,1,2],
+		'a = [1]'.setup,
+		expr('a').UT == [1],
+		expr('a').UT(2) == [1],
+		expr('a').UT(-4) == [1],
+		expr('a').UT(13) == [1],
+		expr('a').UT(-13) == [1],
+		'a = []'.setup,
+		expr('a').UT == [],
+		expr('a').UT(2) == [],
+		expr('a').UT(-4) == [],
+		expr('a').UT(13) == [],
+		expr('a').UT(-13) == [],
+		[1,2,3].UT(1, 1).raise?(ArgumentError),
+		[1,2,3,4,5].UT(2**31-0.1) == [1,2,3,4,5].rotate(2**31-1),
+		[1,2,3,4,5].UT(-2**31-0.9) == [1,2,3,4,5].rotate(-2**31),
+	coda
+	spec "#rotate!",
+		{"(count=1)" => Array},
+		"Rotates `self` in place so that the element at count comes first, and returns `self`.",
+		"If count is negative, then it rotates in the opposite direction, starting from the end of the array where `-1` is the last element.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d"]
+			a.rotate!        #=> ["b", "c", "d", "a"]
+			a                #=> ["b", "c", "d", "a"]
+			a.rotate!(2)     #=> ["d", "a", "b", "c"]
+			a.rotate!(-3)    #=> ["a", "b", "c", "d"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_rotate!",
+		'a = [1,2,3,4,5]'.setup,
+		expr('a').UT == [2,3,4,5,1],
+		RECEIVER == [2,3,4,5,1],
+		expr('a').UT(2) == [4,5,1,2,3],
+		expr('a').UT(-4) == [5,1,2,3,4],
+		expr('a').UT(13) == [3,4,5,1,2],
+		expr('a').UT(-13) == [5,1,2,3,4],
+		'a = [1]'.setup,
+		expr('a').UT == [1],
+		expr('a').UT(2) == [1],
+		expr('a').UT(-4) == [1],
+		expr('a').UT(13) == [1],
+		expr('a').UT(-13) == [1],
+		'a = []'.setup,
+		expr('a').UT == [],
+		expr('a').UT(2) == [],
+		expr('a').UT(-4) == [],
+		expr('a').UT(13) == [],
+		expr('a').UT(-13) == [],
+		[].UT.raise?(RuntimeError, message: /can\'t modify frozen/),
+		[1,2,3].UT(1, 1).raise?(ArgumentError),
+	coda
+	spec "#sample",
+		"The elements are chosen by using random and unique indices into the array in order to ensure that an element doesn’t repeat itself unless the array already contained duplicate elements.",
+		"If the array is empty the first form returns `nil` and the second form returns an empty array.",
+		{"" => Object},
+		"Chooses a random element from the array. If the array is empty,returns `nil`.",
+		{"(n)" => Array},
+		"Chooses `n` random elements from the array. If the array is empty, returns an empty array.",
+		{"(random: rng)" => Object},
+		{"(n, random: rng)" => Array},
+		"The optional `rng` argument will be used as the random number generator.",
+		<<~'RUBY'.code,
+			a = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+			a.sample         #=> 7
+			a.sample(4)      #=> [6, 4, 2, 5]
+		RUBY
+	coda
+	spec "#select",
+		"See also `Enumerable#select`.",
+		{"{|item| block}" => Array},
+		"Returns a new array containing all elements of ary for which the given block returns a true value.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			[1,2,3,4,5].select{|num|  num.even?}   #=> [2, 4]
+			
+			a = %w{a b c d e f}
+			a.select{|v| v =~ /[aeiou]/}  #=> ["a", "e"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_find_all_0:1/2",
+		[].UT.succeed?,
+	coda
+	spec "#select!",
+		"See also `#keep_if`",
+		{"{|item| block}" => Array|value(nil)},
+		"Invokes the given block passing in successive elements from `self`, deleting elements for which the block returns a false value.",
+		"If changes were made, it will return `self`, otherwise it returns `nil`.",
+		{"" => Enumerator},
+	coda
+	spec "#shift",
+		"See also `#unshift` for the opposite effect.",
+		{"" => Object|value(nil)},
+		"Removes the first element of `self` and returns it (shifting all other elements down by one). Returns `nil` if the array is empty.",
+		{"(n)" => Array},
+		"Returns an array of the first `n` elements (or less) just like `array.slice!(0, n)` does. With `ary` containing only the remainder elements, not including what was shifted to `new_ary`.",
+		<<~'RUBY'.code,
+			args = ["-m", "-q", "filename"]
+			args.shift     #=> "-m"
+			args           #=> ["-q", "filename"]
+			
+			args = ["-m", "-q", "filename"]
+			args.shift(2)  #=> ["-m", "-q"]
+			args           #=> ["filename"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_unshift_error",
+		[].UT("cat").raise?(RuntimeError),
+		[].UT.raise?(RuntimeError),
+		"? ruby/test/ruby/test_array.rb:test_beg_end_0:3/6",
+		'x = [1, 2, 3, 4, 5]'.setup,
+		expr('x').UT == 1,
+		expr('x').UT(3) == [2, 3, 4],
+		RECEIVER == [5],
+	coda
+	spec "#shuffle",
+		{"" => Array},
+		"Returns a new array with elements of `self` shuffled.",
+		<<~'RUBY'.code,
+			a = [1, 2, 3]           #=> [1, 2, 3]
+			a.shuffle               #=> [2, 3, 1]
+		RUBY
+		{"(random: rng)" => Array},
+		"The optional `rng` argument will be used as the random number generator.",
+		<<~'RUBY'.code,
+			a.shuffle(random: Random.new(1))  #=> [1, 3, 2]
+		RUBY
+	coda
+	spec "#shuffle!",
+		{"" => Array},
+		"Shuffles elements in `self` in place.",
+		{"(random: rng)" => Array},
+		"The optional `rng` argument will be used as the random number generator.",
+	coda
+	spec "#size",
+		"Alias for: `length`",
+		"? ruby/test/ruby/test_array.rb:test_size",
+		Array[].UT.zero?,
+		Array[1].UT == 1,
+		expr('Array[*(0..99).to_a]').UT == 100,
+	coda
+	spec "#slice",
+		"Element Reference",
+		"Negative indices count backward from the end of the array (`-1` is the last element).",
+		"Returns `nil` if the index (or starting index) are out of range.",
+		{"(index)" => Object|value(nil)},
+		"Returns the element at `index`.",
+		{"(start, length)" => Array|value(nil)},
+		{"(range)" => Array|value(nil)},
+		"Returns a subarray starting at the `start` index and continuing for `length` elements, or a subarray specified by `range` of indices.",
+		"The starting index is just before an element.",
+		"An empty array is returned when the starting index for an element range is at the end of the array.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c", "d", "e"]
+			a[2] +  a[0] + a[1]    #=> "cab"
+			a[6]                   #=> nil
+			a[1, 2]                #=> ["b", "c"]
+			a[1..3]                #=> ["b", "c", "d"]
+			a[4..7]                #=> ["e"]
+			a[6..10]               #=> nil
+			a[-3, 3]               #=> ["c", "d", "e"]
+			# special cases
+			a[5]                   #=> nil
+			a[6, 1]                #=> nil
+			a[5, 1]                #=> []
+			a[5..10]               #=> []
+		RUBY
+	coda
+	spec "#slice!",
+		"Returns the deleted object (or objects), or `nil` if the index is out of range.",
+		{"(index)" => Object|value(nil)},
+		"Deletes the element given by an index.",
+		{"(start, length)" => Array|value(nil)},
+		{"(range)" => Array|value(nil)},
+		"Deletes the element(s) given by an index up to `length` elements or by `range`.",
+		<<~'RUBY'.code,
+			a = ["a", "b", "c"]
+			a.slice!(1)     #=> "b"
+			a               #=> ["a", "c"]
+			a.slice!(-1)    #=> "c"
+			a               #=> ["a"]
+			a.slice!(100)   #=> nil
+			a               #=> ["a"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_slice!",
+		Array[1, 2, 3, 4, 5].UT(2) == 3,
+		RECEIVER == Array[1, 2, 4, 5],
+		Array[1, 2, 3, 4, 5].UT(-2) == 4,
+		RECEIVER == Array[1, 2, 3, 5],
+		Array[1, 2, 3, 4, 5].UT(2,2) == Array[3,4],
+		RECEIVER == Array[1, 2, 5],
+		Array[1, 2, 3, 4, 5].UT(-2,2) == Array[4,5],
+		RECEIVER == Array[1, 2, 3],
+		Array[1, 2, 3, 4, 5].UT(2..3) == Array[3,4],
+		RECEIVER == Array[1, 2, 5],
+		Array[1, 2, 3, 4, 5].UT(20).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		Array[1, 2, 3, 4, 5].UT(-6).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		Array[1, 2, 3, 4, 5].UT(-6..4).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		Array[1, 2, 3, 4, 5].UT(-6,2).nil?,
+		RECEIVER == Array[1, 2, 3, 4, 5],
+		Array[1].UT.raise?(ArgumentError),
+		Array[1].UT(0, 0, 0).raise?(ArgumentError),
+	coda
+	spec "#sort",
+		"See also `Enumerable#sort_by`.",
+		"Returns a new array created by sorting `self`.",
+		{"" => Array},
+		"Comparisons for the `sort` will be done using the `<=>` operator.",
+		{"{|a, b| block}" => Array},
+		"Comparisons for the `sort` will be done using the code block.",
+		"The block must implement a comparison between `a` and `b`, and return `-1`, when `a` follows `b`, `0` when `a` and `b` are equivalent, or `+1` if `b` follows `a`.",
+		<<~'RUBY'.code,
+			a = ["d", "a", "e", "c", "b"]
+			a.sort                 #=> ["a", "b", "c", "d", "e"]
+			a.sort{|x,y| y <=> x}  #=> ["e", "d", "c", "b", "a"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_sort_0:1/2",
+		["it", "came", "to", "pass", "that", "..."].UT
+			.join(" ") == "... came it pass that to",
+	coda
+	spec "#sort!",
+		"See also `Enumerable#sort_by`.",
+		"Sorts `self` in place.",
+		{"" => Array},
+		"Comparisons for the `sort` will be done using the `<=>` operator.",
+		{"{|a, b| block}" => Array},
+		"Comparisons for the `sort` will be done using the code block.",
+		"The block must implement a comparison between `a` and `b`, and return `-1`, when `a` follows `b`, `0` when `a` and `b` are equivalent, or `+1` if `b` follows `a`.",
+		<<~'RUBY'.code,
+			a = ["d", "a", "e", "c", "b"]
+			a.sort!                 #=> ["a", "b", "c", "d", "e"]
+			a.sort!{|x,y| y <=> x}  #=> ["e", "d", "c", "b", "a"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_sort_0:2/2",
+		"?? sort with condition",
+		[2,5,3,1,7].UT{|a,b| a<=>b}.succeed?,
+		RECEIVER == [1,2,3,5,7],
+		"?? reverse sort",
+		[2,5,3,1,7].UT{|a,b| b-a}.succeed?,
+		RECEIVER == [7,5,3,2,1],
+	coda
+	spec "#sort_by!",
+		{"{|obj| block}" => Array},
+		"Sorts `self` in place using a set of keys generated by mapping the values in self through the given block.",
+		{"" => Enumerator},
+		"? ruby/test/ruby/test_array.rb:test_sort_by!",
+		[1,3,5,2,4].UT{|x| -x}.succeed?,
+		RECEIVER == [5,4,3,2,1],
+	coda
+	spec "#take",
+		"See also `#drop`",
+		{"(n)" => Array},
+		"Returns first `n` elements from the array.",
+		"If a negative number is given, raises an `ArgumentError`.",
+		<<~'RUBY'.code,
+			a = [1, 2, 3, 4, 5, 0]
+			a.take(3) #=> [1, 2, 3]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_take",
+		[1,2,3,4,5,0].UT(3) == [1,2,3],
+		"?? ruby-dev:34123",
+		[1,2].UT(-1).raise?(ArgumentError),
+		"?? ruby-dev:34123",
+		[1,2].UT(1000000000) == [1,2],
+	coda
+	spec "#take_while",
+		"See also `#drop_while`",
+		{"{|arr| block}" => Array},
+		"Passes elements to the block until the block returns `nil` or `false`, then stops iterating and returns an array of all prior elements.",
+		{"" => Enumerator},
+		<<~'RUBY'.code,
+			a = [1, 2, 3, 4, 5, 0]
+			a.take_while{|i| i < 3}  #=> [1, 2]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_take_while",
+		[1,2,3,4,5,0].UT{|i| i < 3} == [1,2],
+	coda
+	spec "#to_a",
+		{"" => Array},
+		"Returns `self`.",
+		"If called on a subclass of `Array`, converts the receiver to an `Array` object.",
+	coda
+	spec "#to_ary",
+		{"" => Array},
+		"Returns `self`.",
+	coda
+	spec "#to_h",
+		{"" => Hash},
+		"Returns the result of interpreting `ary` as an array of `[key, value]` pairs.",
+		<<~'RUBY'.code,
+			[[:foo, :bar], [1, 2]].to_h
+			  # => {:foo => :bar, 1 => 2}
+		RUBY
+	coda
+	spec "#to_s",
+		"Alias for: `inspect`.",
+		"? ruby/test/ruby/test_array.rb:test_to_s",
+		'$, = ""'.setup,
+		Array[].UT == "[]",
+		'$, = ""'.setup,
+		Array[1, 2].UT == "[1, 2]",
+		'$, = ""'.setup,
+		Array[1, 2, 3].UT == "[1, 2, 3]",
+		'$, = ":"'.setup,
+		Array[1, 2, 3].UT == "[1, 2, 3]",
+		'$, = nil'.setup,
+		teardown,
+	coda
+	spec "#transpose",
+		{"" => Array},
+		"Assumes that `self` is an array of arrays and transposes the rows and columns.",
+		<<~'RUBY'.code,
+			a = [[1,2], [3,4], [5,6]]
+			a.transpose   #=> [[1, 3, 5], [2, 4, 6]]
+		RUBY
+		"If the length of the subarrays don’t match, an `IndexError` is raised.",
+		"? ruby/test/ruby/test_array.rb:test_transpose",
+		[[1, 2, 3], [:a, :b, :c]].UT == [[1, :a], [2, :b], [3, :c]],
+		[[1, 2, 3], [:a, :b]].UT.raise?(IndexError),
+	coda
+	spec "#uniq",
+		{"" => Array},
+		"Returns a new array by removing duplicate values in `self`.",
+		"It compares values using their hash and eql? methods for efficiency.",
+		{"{|item| ...}" => Array},
+		"It will use the return value of the block for comparison.",
+		<<~'RUBY'.code,
+			a = ["a", "a", "b", "b", "c"]
+			a.uniq   # => ["a", "b", "c"]
+			
+			b = [["student","sam"], ["student","george"], ["teacher","matz"]]
+			b.uniq{|s| s.first} # => [["student", "sam"], ["teacher", "matz"]]
+		RUBY
+	coda
+	spec "#uniq!",
+		{"" => Array|value(nil)},
+		"Removes duplicate elements from `self`.",
+		"It compares values using their `hash` and `eql?` methods for efficiency.",
+		"Returns `nil` if no changes are made (that is, no duplicates are found).",
+		{"{|item| ...}" => Array|value(nil)},
+		"It will use the return value of the block for comparison.",
+		<<~'RUBY'.code,
+			a = ["a", "a", "b", "b", "c"]
+			a.uniq!   # => ["a", "b", "c"]
+			
+			b = ["a", "b", "c"]
+			b.uniq!   # => nil
+			
+			c = [["student","sam"], ["student","george"], ["teacher","matz"]]
+			c.uniq!{|s| s.first} # => [["student", "sam"], ["teacher", "matz"]]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_uniq_0",
+		[1, 1, 4, 2, 5, 4, 5, 1, 2].UT.succeed?,
+		RECEIVER == [1, 4, 2, 5],
+	coda
+	spec "#unshift",
+		"See also `#shift` for the opposite effect.",
+		{"(obj, ...)" => Array},
+		"Prepends objects to the front of `self`, moving other elements upwards.",
+		<<~'RUBY'.code,
+			a = ["b", "c", "d"]
+			a.unshift("a")   #=> ["a", "b", "c", "d"]
+			a.unshift(1, 2)  #=> [1, 2, "a", "b", "c", "d"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_beg_end_0:4/6",
+		'x = [5]'.setup,
+		expr('x').UT(2, 3, 4) == [2, 3, 4, 5],
+		expr('x').UT(1) == [1, 2, 3, 4, 5],
+		RECEIVER == [1, 2, 3, 4, 5],
+	coda
+	spec "#values_at",
+		"See also `#select`.",
+		{"(selector, ...)" => Array},
+		"Returns an array containing the elements in `self` corresponding to the given selector(s).",
+		"The selectors may be either integer indices or ranges.",
+		<<~'RUBY'.code,
+			a = %w{a b c d e f}
+			a.values_at(1, 3, 5)          # => ["b", "d", "f"]
+			a.values_at(1, 3, 5, 7)       # => ["b", "d", "f", nil]
+			a.values_at(-1, -2, -2, -7)   # => ["f", "e", "e", nil]
+			a.values_at(4..6, 3...6)      # => ["e", "f", nil, "d", "e", "f"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:test_values_at",
+		'a = Array[*("a".."j").to_a]'.setup,
+		expr('a').UT(0, 2, 4) == Array["a", "c", "e"],
+		expr('a').UT(-1, -3, -5) == Array["j", "h", "f"],
+		expr('a').UT(-3, 99, 0) == Array["h", nil, "a"],
+	coda
+	spec "#zip",
+		"Converts any arguments to arrays, then merges elements of self with corresponding elements from each argument.",
+		"This generates a sequence of `ary.size` n-element arrays, where n is one more than the count of arguments.",
+		"If the size of any argument is less than the size of the initial array, `nil` values are supplied.",
+		{"(arg, ...)" => Array},
+		"An array of arrays is returned.",
+		{"(arg, ...){|arr| block}" => NilClass},
+		"It is invoked for each output array.",
+		<<~'RUBY'.code,
+			a = [4, 5, 6]
+			b = [7, 8, 9]
+			[1, 2, 3].zip(a, b)   #=> [[1, 4, 7], [2, 5, 8], [3, 6, 9]]
+			[1, 2].zip(a, b)      #=> [[1, 4, 7], [2, 5, 8]]
+			a.zip([1, 2], [8])    #=> [[4, 1, 8], [5, 2, nil], [6, nil, nil]]
+		RUBY
+	coda
+	spec "#|",
+		"See also `#uniq`.",
+		{"other_ary" => Array},
+		"Set Union — Returns a new array by joining `ary` with `other_ary`, excluding any duplicates and preserving the order from the original array.",
+		"It compares elements using their `hash` and `eql?` methods for efficiency.",
+		<<~'RUBY'.code,
+			["a", "b", "c"] | ["c", "d", "a"]    #=> ["a", "b", "c", "d"]
+		RUBY
+		"? ruby/test/ruby/test_array.rb:ruby/test/ruby/test_array_andor_0:2/2",
+		[1,2,3].UT([2,4,6]) == [1,2,3,4,6],
+		"? ruby/test/ruby/test_array.rb:test_0_literal:5/8",
+		[1,2,3].UT([2,3,4]) == [1,2,3,4],
+	coda
+end
+		
+class String
+	spec "#split",
+		"? ruby/test/ruby/test_array.rb:test_split_0",
+		<<~'RUBY'.setup,
+			x = "The Book of Mormon"
+			y = x.reverse
+		RUBY
+		expr('x').UT(//).reverse!.join == expr('x').reverse,
+		RECEIVER.reverse! == expr('x'),
+		"1 byte string".UT(//).reverse.join(":") == "g:n:i:r:t:s: :e:t:y:b: :1",
+		'x = "a b c d"'.setup,
+		expr('x').UT == ["a", "b", "c", "d"],
+		expr('x').UT(" ") == ["a", "b", "c", "d"],
+	coda
+end
+
+=begin
+
+"? ruby/test/ruby/test_array.rb:test_percent_i",
+%i[foo bar] == [:foo, :bar],
+%i["foo] == [:"\"foo"],
+
+"? ruby/test/ruby/test_array.rb:test_percent_I",
+x = 10
+%I[foo b#{x}] == [:foo, :b10],
+%I["foo#{x}] == [:"\"foo10"],
+
+"? ruby/test/ruby/test_array.rb:test_misc_0",
+assert(defined? "a".chomp, '"a".chomp is not defined')
+"abc".scan(/./) == ["a", "b", "c"],
+"1a2b3c".scan(/(\d.)/) == [["1a"], ["2b"], ["3c"]],
+"?? non-greedy match",
+"a=12;b=22".scan(/(.*?)=(\d*);?/)) == [["a", "12"], ["b", "22"]],
+x = [1]
+(x * 5).join(":") == "1:1:1:1:1",
+(x * 1).join(":") == "1",
+(x * 0).join(":") == "",
+*x = *(1..7).to_a
+x.size == 7,
+x == [1, 2, 3, 4, 5, 6, 7],
+x = [1,2,3]
+x[1,0] = x
+x == [1,1,2,3,2,3],
+x = [1,2,3]
+x[-1,0] = x
+x == [1,2,1,2,3,3],
+x = [1,2,3]
+x.concat(x)
+x == [1,2,3,1,2,3],
+x = [1,2,3]
+x.clear
+x == [],
+x = [1,2,3]
+y = x.dup
+x << 4
+y << 5
+x == [1,2,3,4],
+y == [1,2,3,5]
+
+"? ruby/test/ruby/test_array.rb:test_find_all_0:2/2",
+assert_respond_to([], :find_all
+[].find_all{|obj| obj == "foo"} == [],
+x = ["foo", "bar", "baz", "baz", 1, 2, 3, 3, 4]
+x.find_all{|obj| obj == "baz"} == ["baz","baz"],
+x.find_all{|obj| obj == 3} == [3,3]
+
+"? ruby/test/ruby/test_array.rb:test_clone",
+for taint in [false, true]
+	for frozen in [false, true]
+		a = Array[*(0..99).to_a]
+		a.taint if taint
+		a if frozen
+		b = a.clone
+		b == a
+		b.__id__ != a.__id__
+		b.frozen? == a.frozen?
+		b.tainted? == a.tainted?,
+
+"? ruby/test/ruby/test_array.rb:test_count",
+a = Array[1, 2, 3, 1, 2]
+a.count == 5,
+a.count(1) == 2,
+a.count{|x| x % 2 == 1} == 3,
+a.count(1){|x| x % 2 == 1} == 2,
+a.count(0, 1).raise?(ArgumentError)
+"?? bug8654 ruby-core:56072",
+assert_in_out_err [], <<~EOS, ["0"], [],
+	a1 = []
+	a2 = Array.new(100){|i| i}
+	a2.count do
+		|i|
+		p i
+		a2.replace(a1) if i.zero?
+EOS
+assert_in_out_err [], <<~EOS, ["[]", "0"], [],
+	ARY = Array.new(100){|i| i}
+	class Fixnum
+		alias old_equal == #Use `prepend`
+		def == other
+			ARY.replace([]) if self.equal?(0)
+			p ARY
+			self.equal?(other)
+			p ARY.count(42)
+EOS
+
+"? ruby/test/ruby/test_array.rb:test_dup",
+for taint in [false, true]
+	for frozen in [false, true]
+		a = Array[*(0..99).to_a]
+		a.taint if taint
+		a if frozen
+		b = a.dup
+		b == a,
+		b.__id__ != a.__id__,
+		b.frozen? == false,
+		b.tainted? == a.tainted?,
+	end
+end
+
+"? ruby/test/ruby/test_array.rb:test_each",
+a = Array[*%w(ant bat cat dog)]
+i = 0
+a.each{|e|
+	e == a[i]
+	i += 1
+}
+i == 4,
+a = Array[]
+i = 0
+a.each{|e|
+	e == a[i],
+	i += 1
+}
+i.zero?,
+a.each{} == a
+
+"? ruby/test/ruby/test_array.rb:test_each_index",
+a = Array[*%w(ant bat cat dog)]
+i = 0
+a.each_index{|ind|
+	ind == i
+	i += 1
+}
+i == 4,
+a = Array[]
+i = 0
+a.each_index{|ind|
+	ind == i,
+	i += 1
+}
+i.zero?,
+a.each_index{} == a,
+
+"? ruby/test/ruby/test_array.rb:test_flatten_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+o = Object.new
+def o.to_ary() callcc{|k| @cont = k; [1,2,3]} end
+begin
+	[10, 20, o, 30, o, 40].flatten == [10, 20, 1, 2, 3, 30, 1, 2, 3, 40],
+rescue => e
+else
+o.instance_eval{@cont}.call
+end
+"?? ruby-dev:34798",
+e.instance_of?(RuntimeError)
+e.message =~ /reentered/
+
+"? ruby/test/ruby/test_array.rb:test_permutation_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+n = 1000
+cont = nil
+ary = [1,2,3]
+begin
+	ary.permutation{
+		callcc{|k| cont = k} unless cont
+	}
+rescue => e
+end
+n -= 1
+cont.call if 0 < n
+e.instance_of?(RuntimeError),
+e.message =~ /reentered/
+
+"? ruby/test/ruby/test_array.rb:test_product_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+n = 1000
+cont = nil
+ary = [1,2,3]
+begin
+	ary.product{
+		callcc{|k| cont = k} unless cont
+	}
+rescue => e
+end
+n -= 1
+cont.call if 0 < n
+e.instance_of?(RuntimeError),
+e.message =~ /reentered/
+
+"? ruby/test/ruby/test_array.rb:test_combination_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+n = 1000
+cont = nil
+ary = [1,2,3]
+begin
+	ary.combination(2){
+		callcc{|k| cont = k} unless cont
+	}
+rescue => e
+end
+n -= 1
+cont.call if 0 < n
+e.instance_of?(RuntimeError),
+e.message =~ /reentered/
+
+"? ruby/test/ruby/test_array.rb:test_repeated_permutation_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+n = 1000
+cont = nil
+ary = [1,2,3]
+begin
+ary.repeated_permutation(2){
+callcc{|k| cont = k} unless cont
+}
+rescue => e
+end
+n -= 1
+cont.call if 0 < n
+assert_instance_of?(RuntimeError, e)
+assert_match(/reentered/, e.message)
+
+"? ruby/test/ruby/test_array.rb:test_repeated_combination_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+n = 1000
+cont = nil
+ary = [1,2,3]
+begin
+ary.repeated_combination(2){
+callcc{|k| cont = k} unless cont
+}
+rescue => e
+end
+n -= 1
+cont.call if 0 < n
+assert_instance_of?(RuntimeError, e)
+assert_match(/reentered/, e.message)
+
+"? ruby/test/ruby/test_array.rb:test_replace",
+a = Array[1, 2, 3]
+a_id = a.__id__
+== Array[4, 5, 6], a.replace(Array[4, 5, 6]
+== Array[4, 5, 6], a
+== a_id, a.__id__
+== Array[], a.replace(Array[])
+fa = a.dup
+assert_nothing_raised(RuntimeError){a.replace(a)}
+fa.replace(fa).raise?(RuntimeError)
+fa.replace.raise?(ArgumentError)
+a.replace(42).raise?(TypeError)
+fa.replace(42).raise?(RuntimeError)
+
+"? ruby/test/ruby/test_array.rb:test_reverse_each",
+a = Array[*%w(dog cat bee ant)]
+i = a.length
+a.reverse_each{|e|
+i -= 1
+== a[i], e
+}
+== 0, i
+a = Array[]
+i = 0
+a.reverse_each{|e|
+i += 1
+assert(false, "Never get here")
+}
+== 0, i
+
+"? ruby/test/ruby/test_array.rb:test_rindex",
+a = Array["cat", 99, /a/, 99, [1, 2, 3]]
+== 0, a.rindex("cat")
+== 3, a.rindex(99)
+== 4, a.rindex([1,2,3])
+assert_nil(a.rindex("ca")
+assert_nil(a.rindex([1,2])
+== 3, a.rindex(99){|x| x == [1,2,3]}
+
+"? ruby/test/ruby/test_array.rb:test_shift",
+a = Array["cat", "dog"]
+== "cat", a.shift
+== Array["dog"], a
+== "dog", a.shift
+== Array[], a
+assert_nil(a.shift)
+== Array[], a
+
+"? ruby/test/ruby/test_array.rb:test_slice",
+a = Array[*(1..100).to_a]
+== 1, a.slice(0)
+== 100, a.slice(99)
+assert_nil(a.slice(100)
+== 100, a.slice(-1)
+== 99, a.slice(-2)
+== 1, a.slice(-100)
+assert_nil(a.slice(-101)
+== Array[1], a.slice(0,1)
+== Array[100], a.slice(99,1)
+== Array[], a.slice(100,1)
+== Array[100], a.slice(99,100)
+== Array[100], a.slice(-1,1)
+== Array[99], a.slice(-2,1)
+== Array[10, 11, 12], a.slice(9, 3)
+== Array[10, 11, 12], a.slice(-91, 3)
+assert_nil(a.slice(-101, 2)
+== Array[1], a.slice(0..0)
+== Array[100], a.slice(99..99)
+== Array[], a.slice(100..100)
+== Array[100], a.slice(99..200)
+== Array[100], a.slice(-1..-1)
+== Array[99], a.slice(-2..-2)
+== Array[10, 11, 12], a.slice(9..11)
+== Array[10, 11, 12], a.slice(-91..-89)
+assert_nil(a.slice(-101..-1)
+assert_nil(a.slice(10, -3)
+# Ruby 1.8 feature change:
+# Array#slice[size..x] always returns [].
+#assert_nil(a.slice(10..7)
+assert_equal Array[], a.slice(10..7)
+
+"? ruby/test/ruby/test_array.rb:test_sort",
+a = Array[4, 1, 2, 3]
+== Array[1, 2, 3, 4], a.sort
+== Array[4, 1, 2, 3], a
+== Array[4, 3, 2, 1], a.sort{|x, y| y <=> x}
+== Array[4, 1, 2, 3], a
+== Array[1, 2, 3, 4], a.sort{|x, y| (x - y) * (2**100)}
+a.fill(1)
+== Array[1, 1, 1, 1], a.sort
+== Array[], Array[].sort
+
+"? ruby/test/ruby/test_array.rb:test_sort!",
+a = Array[4, 1, 2, 3]
+== Array[1, 2, 3, 4], a.sort!
+== Array[1, 2, 3, 4], a
+== Array[4, 3, 2, 1], a.sort!{|x, y| y <=> x}
+== Array[4, 3, 2, 1], a
+a.fill(1)
+== Array[1, 1, 1, 1], a.sort!
+== Array[1], Array[1].sort!
+== Array[], Array[].sort!
+a = Array[4, 3, 2, 1]
+a.sort!{|m, n| a.replace([9, 8, 7, 6]); m <=> n}
+== [1, 2, 3, 4], a
+a = Array[4, 3, 2, 1]
+a.sort!{|m, n| a.replace([9, 8, 7]); m <=> n}
+== [1, 2, 3, 4], a
+
+"? ruby/test/ruby/test_array.rb:test_sort_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+n = 1000
+cont = nil
+ary = (1..100).to_a
+begin
+ary.sort!{|a,b|
+callcc{|k| cont = k} unless cont
+== 100, ary.size, "ruby-core:16679"
+a <=> b
+}
+rescue => e
+end
+n -= 1
+cont.call if 0 < n
+assert_instance_of?(RuntimeError, e, "ruby-core:16679")
+assert_match(/reentered/, e.message, "ruby-core:16679")
+
+"? ruby/test/ruby/test_array.rb:test_sort_with_replace",
+xary = (1..100).to_a
+100.times do
+ary = (1..100).to_a
+ary.sort!{|a,b| ary.replace(xary); a <=> b}
+GC.start
+== xary, ary, "ruby-dev:34732"
+end
+
+"? ruby/test/ruby/test_array.rb:test_sort_bang_with_freeze",
+ary = []
+o1 = Object.new
+o1.singleton_class.class_eval{
+define_method(:<=>){|v|
+ary
+1
+}
+}
+o2 = o1.dup
+ary << o1 << o2
+orig = ary.dup
+ary.sort!.raise?(RuntimeError, message: "frozen during comparison")
+== orig, ary, "must not be modified once frozen"
+
+"? ruby/test/ruby/test_array.rb:test_to_a",
+a = Array[1, 2, 3]
+a_id = a.__id__
+== a, a.to_a
+== a_id, a.to_a.__id__
+
+"? ruby/test/ruby/test_array.rb:test_to_ary",
+a = [1, 2, 3]
+b = Array[*a]
+a_id = a.__id__
+== a, b.to_ary
+if (Array == Array)
+== a_id, a.to_ary.__id__
+end
+o = Object.new
+def o.to_ary
+[4, 5]
+end
+== [1, 2, 3, 4, 5], a.concat(o)
+o = Object.new
+def o.to_ary
+foo_bar()
+end
+assert_match(/foo_bar/, assert_raise(NoMethodError){a.concat(o)}.message)
+
+"? ruby/test/ruby/test_array.rb:test_to_h",
+kvp = Object.new
+def kvp.to_ary
+[:obtained, :via_to_ary]
+end
+array = [
+[:key, :value],
+kvp,
+]
+== {key: :value, obtained: :via_to_ary}, array.to_h
+e = assert_raise(TypeError){
+[[:first_one, :ok], :not_ok].to_h
+}
+assert_equal "wrong element type Symbol at 1 (expected array)", e.message
+e = assert_raise(ArgumentError){
+[[:first_one, :ok], [1, 2], [:not_ok]].to_h
+}
+assert_equal "wrong array length at 2 (expected 2, was 1)", e.message
+
+"? ruby/test/ruby/test_array.rb:test_uniq",
+a = []
+b = a.uniq
+== [], a
+== [], b
+assert_not_same(a, b)
+a = [1]
+b = a.uniq
+== [1], a
+== [1], b
+assert_not_same(a, b)
+a = [1,1]
+b = a.uniq
+== [1,1], a
+== [1], b
+assert_not_same(a, b)
+a = [1,2]
+b = a.uniq
+== [1,2], a
+== [1,2], b
+assert_not_same(a, b)
+a = Array[1, 2, 3, 2, 1, 2, 3, 4, nil]
+b = a.dup
+== Array[1, 2, 3, 4, nil], a.uniq
+== b, a
+c = Array["a:def", "a:xyz", "b:abc", "b:xyz", "c:jkl"]
+d = c.dup
+== Array["a:def", "b:abc", "c:jkl"], c.uniq{|s| s[/^\w+/]}
+== d, c
+== Array[1, 2, 3], Array[1, 2, 3].uniq
+a = %w(a a)
+b = a.uniq
+== %w(a a), a
+assert(a.none?(&:frozen?)
+== %w(a), b
+assert(b.none?(&:frozen?)
+bug9340 = "ruby-core:59457"
+ary = [bug9340, bug9340.dup, bug9340.dup]
+assert_equal 1, ary.uniq.size
+assert_same bug9340, ary.uniq[0]
+
+"? ruby/test/ruby/test_array.rb:test_uniq_with_block",
+a = []
+b = a.uniq{|v| v.even?}
+== [], a
+== [], b
+assert_not_same(a, b)
+a = [1]
+b = a.uniq{|v| v.even?}
+== [1], a
+== [1], b
+assert_not_same(a, b)
+a = [1,3]
+b = a.uniq{|v| v.even?}
+== [1,3], a
+== [1], b
+assert_not_same(a, b)
+a = %w(a a)
+b = a.uniq{|v| v}
+== %w(a a), a
+assert(a.none?(&:frozen?)
+== %w(a), b
+assert(b.none?(&:frozen?)
+
+"? ruby/test/ruby/test_array.rb:test_uniq!",
+a = []
+b = a.uniq!
+b.nil?
+a = [1]
+b = a.uniq!
+b.nil?
+a = [1,1]
+b = a.uniq!
+== [1], a
+== [1], b
+assert_same(a, b)
+a = [1,2]
+b = a.uniq!
+== [1,2], a
+b.nil?
+a = Array[1, 2, 3, 2, 1, 2, 3, 4, nil]
+== Array[1, 2, 3, 4, nil], a.uniq!
+== Array[1, 2, 3, 4, nil], a
+c = Array["a:def", "a:xyz", "b:abc", "b:xyz", "c:jkl"]
+== Array["a:def", "b:abc", "c:jkl"], c.uniq!{|s| s[/^\w+/]}
+== Array["a:def", "b:abc", "c:jkl"], c
+c = Array["a:def", "b:abc", "c:jkl"]
+c.uniq!{|s| s[/^\w+/]}.nil?
+== Array["a:def", "b:abc", "c:jkl"], c
+assert_nil(Array[1, 2, 3].uniq!)
+f = a.dup
+a.uniq!(1).raise?(ArgumentError)
+f.uniq!(1).raise?(ArgumentError)
+f.uniq!.raise?(RuntimeError)
+assert_nothing_raised do
+a = [{c: "b"}, {c: "r"}, {c: "w"}, {c: "g"}, {c: "g"}]
+a.sort_by!{|e| e[:c]}
+a.uniq!{|e| e[:c]}
+end
+a = %w(a a)
+b = a.uniq
+== %w(a a), a
+assert(a.none?(&:frozen?)
+== %w(a), b
+assert(b.none?(&:frozen?)
+
+"? ruby/test/ruby/test_array.rb:test_uniq_bang_with_block",
+a = []
+b = a.uniq!{|v| v.even?}
+b.nil?
+a = [1]
+b = a.uniq!{|v| v.even?}
+b.nil?
+a = [1,3]
+b = a.uniq!{|v| v.even?}
+== [1], a
+== [1], b
+assert_same(a, b)
+a = [1,2]
+b = a.uniq!{|v| v.even?}
+== [1,2], a
+b.nil?
+a = %w(a a)
+b = a.uniq!{|v| v}
+== %w(a), b
+assert_same(a, b)
+assert b.none?(&:frozen?)
+
+"? ruby/test/ruby/test_array.rb:test_uniq_bang_with_freeze",
+ary = [1,2]
+orig = ary.dup
+ary.uniq!{|v| ary; 1}.raise?(RuntimeError, message: "frozen during comparison")
+== orig, ary, "must not be modified once frozen"
+
+"? ruby/test/ruby/test_array.rb:test_unshift",
+a = Array[]
+== Array["cat"], a.unshift("cat")
+== Array["dog", "cat"], a.unshift("dog")
+== Array[nil, "dog", "cat"], a.unshift(nil)
+== Array[Array[1,2], nil, "dog", "cat"], a.unshift(Array[1, 2])
+
+"? ruby/test/ruby/test_array.rb:test_OR # '|'",
+== Array[], Array[] | Array[]
+== Array[1], Array[1] | Array[]
+== Array[1], Array[] | Array[1]
+== Array[1], Array[1] | Array[1]
+== Array[1,2], Array[1] | Array[2]
+== Array[1,2], Array[1, 1] | Array[2, 2]
+== Array[1,2], Array[1, 2] | Array[1, 2]
+a = %w(a b c)
+b = %w(a b c d e)
+c = a | b
+== c, b
+assert_not_same(c, b)
+== %w(a b c), a
+== %w(a b c d e), b
+assert(a.none?(&:frozen?)
+assert(b.none?(&:frozen?)
+assert(c.none?(&:frozen?)
+
+"? ruby/test/ruby/test_array.rb:test_OR_in_order",
+obj1, obj2 = Class.new do
+attr_reader :name
+def initialize(name) @name = name; end
+def inspect; "test_OR_in_order(#{@name})"; end
+def hash; 0; end
+def eql?(a) true; end
+break [new("1"), new("2")]
+end
+== [obj1], [obj1]|[obj2]
+
+"? ruby/test/ruby/test_array.rb:test_repeated_permutation",
+a = Array[1,2]
+== Array[[]], a.repeated_permutation(0).to_a
+== Array[[1],[2]], a.repeated_permutation(1).to_a.sort
+== Array[[1,1],[1,2],[2,1],[2,2]],
+a.repeated_permutation(2).to_a.sort
+== Array[[1,1,1],[1,1,2],[1,2,1],[1,2,2],
+[2,1,1],[2,1,2],[2,2,1],[2,2,2]],
+a.repeated_permutation(3).to_a.sort
+== Array[], a.repeated_permutation(-1).to_a
+== "abcde".each_char.to_a.repeated_permutation(5).sort,
+"edcba".each_char.to_a.repeated_permutation(5).sort
+== Array[].repeated_permutation(0).to_a, Array[[]]
+== Array[].repeated_permutation(1).to_a, Array[]
+a = Array[1, 2, 3, 4]
+b = Array[]
+a.repeated_permutation(4){|x| b << x; a.replace(Array[9, 8, 7, 6])}
+== Array[9, 8, 7, 6], a
+== Array[1, 2, 3, 4].repeated_permutation(4).to_a, b
+a = Array[0, 1, 2, 3, 4][1, 4].repeated_permutation(2)
+assert_empty(a.reject{|x| !x.include?(0)})
+assert_separately([], <<~"end;") # do
+assert_nothing_raised(SystemStackError) do
+== :ok, Array.new(100_000, nil).repeated_permutation(500_000){break :ok}
+end
+end;
+
+"? ruby/test/ruby/test_array.rb:test_repeated_combination",
+a = Array[1,2,3]
+== Array[[]], a.repeated_combination(0).to_a
+== Array[[1],[2],[3]], a.repeated_combination(1).to_a.sort
+== Array[[1,1],[1,2],[1,3],[2,2],[2,3],[3,3]],
+a.repeated_combination(2).to_a.sort
+== Array[[1,1,1],[1,1,2],[1,1,3],[1,2,2],[1,2,3],
+[1,3,3],[2,2,2],[2,2,3],[2,3,3],[3,3,3]],
+a.repeated_combination(3).to_a.sort
+== Array[[1,1,1,1],[1,1,1,2],[1,1,1,3],[1,1,2,2],[1,1,2,3],
+[1,1,3,3],[1,2,2,2],[1,2,2,3],[1,2,3,3],[1,3,3,3],
+[2,2,2,2],[2,2,2,3],[2,2,3,3],[2,3,3,3],[3,3,3,3]],
+a.repeated_combination(4).to_a.sort
+== Array[], a.repeated_combination(-1).to_a
+== "abcde".each_char.to_a.repeated_combination(5).map{|e|e.sort}.sort,
+"edcba".each_char.to_a.repeated_combination(5).map{|e|e.sort}.sort
+== Array[].repeated_combination(0).to_a, Array[[]]
+== Array[].repeated_combination(1).to_a, Array[]
+a = Array[1, 2, 3, 4]
+b = Array[]
+a.repeated_combination(4){|x| b << x; a.replace(Array[9, 8, 7, 6])}
+== Array[9, 8, 7, 6], a
+== Array[1, 2, 3, 4].repeated_combination(4).to_a, b
+a = Array[0, 1, 2, 3, 4][1, 4].repeated_combination(2)
+assert_empty(a.reject{|x| !x.include?(0)})
+assert_separately([], <<~"end;") # do
+assert_nothing_raised(SystemStackError) do
+== :ok, Array.new(100_000, nil).repeated_combination(500_000){break :ok}
+end
+end;
+
+"? ruby/test/ruby/test_array.rb:test_drop_while",
+== [3,4,5,0], [1,2,3,4,5,0].drop_while{|i| i < 3}
+
+"? ruby/test/ruby/test_array.rb:test_ary_new",
+[].to_enum.first(-1).raise?(ArgumentError)
+[].to_enum.first(longp).raise?(ArgumentError)
+
+"? ruby/test/ruby/test_array.rb:test_initialize",
+assert_nothing_raised{[].instance_eval{initialize}}
+assert_nothing_raised{Array.new{}}
+== [1, 2, 3], Array.new([1, 2, 3]
+Array.new(-1, 1).raise?(ArgumentError)
+Array.new(longp, 1).raise?(ArgumentError)
+== [1, 1, 1], Array.new(3, 1)
+== [1, 1, 1], Array.new(3){1}
+== [1, 1, 1], Array.new(3, 1){1}
+
+"? ruby/test/ruby/test_array.rb:test_aset_error",
+[0][-2] = 1.raise?(IndexError)
+[0][longp] = 2.raise?(IndexError)
+[0][(longp + 1) / 2 - 1] = 2.raise?(IndexError)
+[0][longp..-1] = 2.raise?(IndexError)
+a = [0]
+a[2] = 4
+== [0, nil, 4], a
+([0][0, 0, 0] = 0).raise?(ArgumentError)
+([0][0, 0, 0] = 0).raise?(ArgumentError)
+([0][:foo] = 0).raise?(TypeError)
+([0][:foo] = 0).raise?(RuntimeError)
+
+"? ruby/test/ruby/test_array.rb:test_last2",
+== [0], [0].last(2)
+[0].last(-1).raise?(ArgumentError)
+
+"? ruby/test/ruby/test_array.rb:test_shift2",
+== 0, ([0] * 16).shift
+# check
+a = [0, 1, 2]
+a[3] = 3
+a.shift(2)
+== [2, 3], a
+
+"? ruby/test/ruby/test_array.rb:test_index2",
+a = [0, 1, 2]
+== a, a.index.to_a
+== 1, a.index{|x| x == 1}
+
+"? ruby/test/ruby/test_array.rb:test_rindex2",
+a = [0, 1, 2]
+== [2, 1, 0], a.rindex.to_a
+== 1, a.rindex{|x| x == 1}
+a = [0, 1]
+e = a.rindex
+== 1, e.next
+a.clear
+e.next.raise?(StopIteration)
+o = Object.new
+class << o; self; end.class_eval do
+define_method(:==){|x| a.clear; false}
+end
+a = [nil, o]
+a.rindex(0).nil?
+
+"? ruby/test/ruby/test_array.rb:test_ary_to_ary",
+o = Object.new
+def o.to_ary; [1, 2, 3]; end
+a, b, c = o
+== [1, 2, 3], [a, b, c]
+
+"? ruby/test/ruby/test_array.rb:test_insert",
+a = [0]
+== [0], a.insert(1)
+== [0, 1], a.insert(1, 1)
+a.insert.raise?(ArgumentError)
+== [0, 1, 2], a.insert(-1, 2)
+== [0, 1, 3, 2], a.insert(-2, 3)
+[0].insert(0).raise?(RuntimeError)
+[0].insert.raise?(ArgumentError)
+
+"? ruby/test/ruby/test_array.rb:test_join2",
+a = []
+a << a
+a.join.raise?(ArgumentError)
+def (a = Object.new).to_ary
+[self]
+end
+[a].join.raise?(ArgumentError, message: "ruby-core:24150")
+== "12345", [1,[2,[3,4],5]].join
+
+"? ruby/test/ruby/test_array.rb:test_to_a2",
+klass = Class.new(Array)
+a = klass.new.to_a
+== [], a
+== Array, a.class
+
+"? ruby/test/ruby/test_array.rb:test_values_at2",
+a = [0, 1, 2, 3, 4, 5]
+== [1, 2, 3], a.values_at(1..3)
+== [nil, nil], a.values_at(7..8)
+bug6203 = "ruby-core:43678"
+== [4, 5, nil, nil], a.values_at(4..7), bug6203
+== [nil], a.values_at(2**31-1)
+
+"? ruby/test/ruby/test_array.rb:test_select",
+== [0, 2], [0, 1, 2, 3].select{|x| (x % 2).zero?}
+
+# also keep_if
+"? ruby/test/ruby/test_array.rb:test_select!",
+a = Array[1, 2, 3, 4, 5]
+a.select!{true}.nil?
+== a, a.keep_if{true}
+== Array[1, 2, 3, 4, 5], a
+a = Array[1, 2, 3, 4, 5]
+== a, a.select!{false}
+== Array[], a
+a = Array[1, 2, 3, 4, 5]
+== a, a.select!{|i| i > 3}
+== Array[4, 5], a
+
+"? ruby/test/ruby/test_array.rb:test_delete2",
+a = [0] * 1024 + [1] + [0] * 1024
+a.delete(0)
+== [1], a
+
+"? ruby/test/ruby/test_array.rb:test_reject_with_callcc",
+respond_to?(:callcc, true) or require "continuation"
+bug9727 = "ruby-dev:48101 Bug #9727"
+cont = nil
+a = [*1..10].reject do
+|i|
+callcc{|c| cont = c} if !cont and i == 10
+false
+end
+if a.size < 1000
+a.unshift(:x)
+cont.call
+end
+== 1000, a.size, bug9727
+== [:x, *1..10], a.uniq, bug9727
+
+"? ruby/test/ruby/test_array.rb:test_zip",
+== [[1, :a, "a"], [2, :b, "b"], [3, nil, "c"]],
+[1, 2, 3].zip([:a, :b], ["a", "b", "c", "d"])
+a = []
+[1, 2, 3].zip([:a, :b], ["a", "b", "c", "d"]){|x| a << x}
+== [[1, :a, "a"], [2, :b, "b"], [3, nil, "c"]], a
+ary = Object.new
+def ary.to_a; [1, 2]; end
+%w(a b).zip(ary).raise?(TypeError)
+def ary.each; [3, 4].each{|e|yield e}; end
+== [["a", 3], ["b", 4]], %w(a b).zip(ary)
+def ary.to_ary; [5, 6]; end
+== [["a", 5], ["b", 6]], %w(a b).zip(ary)
+
+"? ruby/test/ruby/test_array.rb:test_zip_bug",
+bug8153 = "ruby-core:53650"
+r = 1..1
+def r.respond_to?(*)
+super
+end
+assert_equal [[42, 1]], [42].zip(r), bug8153
+
+"? ruby/test/ruby/test_array.rb:test_equal",
+o = Object.new
+def o.to_ary; end
+def o.==(x); :foo; end
+== [0, 1, 2], o
+assert_not_equal([0, 1, 2], [0, 1, 3])
+A = Array.new(3, &:to_s)
+B = A.dup
+
+"? ruby/test/ruby/test_array.rb:test_equal_resize",
+o = Object.new
+def o.==(o)
+A.clear
+B.clear
+true
+end
+A[1] = o
+== A, B
+
+"? ruby/test/ruby/test_array.rb:test_flatten_error",
+a = []
+a << a
+a.flatten.raise?(ArgumentError)
+f = []
+a.flatten!(1, 2).raise?(ArgumentError)
+a.flatten!(:foo).raise?(TypeError)
+f.flatten!(1, 2).raise?(ArgumentError)
+f.flatten!.raise?(RuntimeError)
+f.flatten!(:foo).raise?(RuntimeError)
+
+"? ruby/test/ruby/test_array.rb:test_shuffle",
+100.times do
+== [0, 1, 2], [2, 1, 0].shuffle.sort
+end
+gen = Random.new(0)
+[1, 2, 3].shuffle(1, random: gen).raise?(ArgumentError)
+srand(0)
+100.times do
+== [0, 1, 2].shuffle, [0, 1, 2].shuffle(random: gen)
+end
+[0, 1, 2].shuffle(xawqij: "a").raise?(ArgumentError, message: /unknown keyword/)
+[0, 1, 2].shuffle!(xawqij: "a").raise?(ArgumentError, message: /unknown keyword/)
+
+"? ruby/test/ruby/test_array.rb:test_shuffle_random",
+gen = proc do
+10000000
+end
+class << gen
+alias rand call # Use `prepend`
+end
+[*0..2].shuffle(random: gen).raise?(RangeError)
+ary = (0...10000).to_a
+gen = proc do
+ary.replace([])
+0.5
+end
+class << gen
+alias rand call # Use `prepend`
+end
+ary.shuffle!(random: gen).raise?(RuntimeError)
+zero = Object.new
+def zero.to_int
+0
+end
+gen_to_int = proc do
+|max|
+zero
+end
+class << gen_to_int
+alias rand call # Use `prepend`
+end
+ary = (0...10000).to_a
+== ary.rotate, ary.shuffle(random: gen_to_int)
+
+"? ruby/test/ruby/test_array.rb:test_sample",
+100.times do
+assert_include([0, 1, 2], [2, 1, 0].sample)
+samples = [2, 1, 0].sample(2)
+samples.each{|sample|
+assert_include([0, 1, 2], sample)
+}
+end
+srand(0)
+a = (1..18).to_a
+(0..20).each do
+|n|
+100.times do
+b = a.sample(n)
+== [n, 18].min, b.size
+== a, (a | b).sort
+== b.sort, (a & b).sort
+end
+h = Hash.new(0)
+1000.times do
+a.sample(n).each{|x| h[x] += 1}
+end
+assert_operator(h.values.min * 2, :>=, h.values.max) if n != 0
+end
+[1, 2].sample(-1).raise?(ArgumentError, message: "ruby-core:23374")
+gen = Random.new(0)
+srand(0)
+a = (1..18).to_a
+(0..20).each do
+|n|
+100.times do
+|i|
+== a.sample(n), a.sample(n, random: gen), "#{i}/#{n}"
+end
+end
+[0, 1, 2].sample(xawqij: "a").raise?(ArgumentError, message: /unknown keyword/)
+
+"? ruby/test/ruby/test_array.rb:test_sample_random",
+ary = (0...10000).to_a
+ary.sample(1, 2, random: nil).raise?(ArgumentError)
+gen0 = proc do
+|max|
+max/2
+end
+class << gen0
+alias rand call # Use `prepend`
+end
+gen1 = proc do
+|max|
+ary.replace([])
+max/2
+end
+class << gen1
+alias rand call # Use `prepend`
+end
+== 5000, ary.sample(random: gen0)
+assert_nil(ary.sample(random: gen1)
+== [], ary
+ary = (0...10000).to_a
+== [5000], ary.sample(1, random: gen0)
+== [], ary.sample(1, random: gen1)
+== [], ary
+ary = (0...10000).to_a
+== [5000, 4999], ary.sample(2, random: gen0)
+== [], ary.sample(2, random: gen1)
+== [], ary
+ary = (0...10000).to_a
+== [5000, 4999, 5001], ary.sample(3, random: gen0)
+== [], ary.sample(3, random: gen1)
+== [], ary
+ary = (0...10000).to_a
+== [5000, 4999, 5001, 4998], ary.sample(4, random: gen0)
+== [], ary.sample(4, random: gen1)
+== [], ary
+ary = (0...10000).to_a
+== [5000, 4999, 5001, 4998, 5002, 4997, 5003, 4996, 5004, 4995], ary.sample(10, random: gen0)
+== [], ary.sample(10, random: gen1)
+== [], ary
+ary = (0...10000).to_a
+== [5000, 0, 5001, 2, 5002, 4, 5003, 6, 5004, 8, 5005], ary.sample(11, random: gen0)
+ary.sample(11, random: gen1) # implementation decoda, may change in the future
+== [], ary
+half = Object.new
+def half.to_int
+5000
+end
+gen_to_int = proc do
+|max|
+half
+end
+class << gen_to_int
+alias rand call # Use `prepend`
+end
+ary = (0...10000).to_a
+== 5000, ary.sample(random: gen_to_int)
+
+"? ruby/test/ruby/test_array.rb:test_cycle",
+a = []
+[0, 1, 2].cycle do
+|i|
+a << i
+break if a.size == 10
+end
+== [0, 1, 2, 0, 1, 2, 0, 1, 2, 0], a
+a = [0, 1, 2]
+assert_nil(a.cycle{a.clear})
+a = []
+[0, 1, 2].cycle(3){|i| a << i}
+== [0, 1, 2, 0, 1, 2, 0, 1, 2], a
+
+"? ruby/test/ruby/test_array.rb:test_reverse_each2",
+a = [0, 1, 2, 3, 4, 5]
+r = []
+a.reverse_each do
+|x|
+r << x
+a.pop
+a.pop
+end
+== [5, 3, 1], r
+
+"? ruby/test/ruby/test_array.rb:test_combination_clear",
+bug9939 = "ruby-core:63149 Bug #9939"
+assert_separately([], <<~"end;")
+100_000.times{Array.new(1000)}
+a = [*0..100]
+a.combination(3){|*,x| a.clear}
+end;
+
+"? ruby/test/ruby/test_array.rb:test_product2",
+a = (0..100).to_a
+a.product(a, a, a, a, a, a, a, a, a, a).raise?(RangeError)
+assert_nothing_raised(RangeError) do
+a.product(a, a, a, a, a, a, a, a, a, a){break}
+end
+
+"? ruby/test/ruby/test_array.rb:ruby/test/ruby/test_array_subclass",
+class Array2 < Array; end
+== Array2, Array2[1,2,3].uniq.class, "ruby-dev:34581"
+== Array2, Array2[1,2][0,1].class # embeded
+== Array2, Array2[*(1..100)][1..99].class #not embeded
+
+"? ruby/test/ruby/test_array.rb:test_inspect",
+a = Array[1, 2, 3]
+a.taint
+s = a.inspect
+== true, s.tainted?
+
+"? ruby/test/ruby/test_array.rb:test_initialize2",
+a = [1] * 1000
+a.instance_eval{initialize}
+== [], a
+
+"? ruby/test/ruby/test_array.rb:test_shift_shared_ary",
+a = (1..100).to_a
+b = []
+b.replace(a)
+== (1..10).to_a, a.shift(10)
+== (11..100).to_a, a
+
+"? ruby/test/ruby/test_array.rb:test_fill_negative_length",
+a = (1..10).to_a
+a.fill(:foo, 5, -3)
+== (1..10).to_a, a
+
+"? ruby/test/ruby/test_array.rb:test_shared_marking",
+reduce = proc do
+|s|
+s.gsub(/(verify_internal_consistency_reachable_i:\sWB\smiss\s\S+\s\(T_ARRAY\)\s->\s)\S+\s\((proc|T_NONE)\)\n
+\K(?:\1\S+\s\(\2\)\n)*/x) do
+"...(snip #{$&.count("\n")} lines)...\n"
+end
+end
+begin
+assert_normal_exit(<<~EOS, "[Bug #9718]", timeout: 5, stdout_filter: reduce)
+queue = []
+50.times do
+10_000.times do
+queue << lambda{}
+end
+GC.start(full_mark: false, immediate_sweep: true)
+GC.verify_internal_consistency
+queue.shift.call
+end
+EOS
+rescue Timeout::Error => e
+skip e.message
+end
+=end

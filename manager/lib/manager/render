@@ -1,0 +1,1228 @@
+#!ruby
+# frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+using (Module.new do
+	refine Module.singleton_class do
+		def join cref, modul
+			return Manager::Main if modul == "::"
+			begin
+				(cref == Manager::Main ? Object : cref).const_get(modul.to_s)
+				rescue NameError
+			end
+		end
+	end
+	refine Module do
+		#!note1: `inspect` is not the same as `name` in case of the `main` object.
+		#!note2: Singleton class of `self` might further be a singleton class, and so on.
+		def clean_name
+			s = inspect
+			nil while s.gsub!(/#<Class:(.+)>/, '<< \1')
+			s.sub!(/#<[A-Z][a-zA-Z]*:(0x[0-9a-f]+)>/) do
+				ObjectSpace._id2ref(Integer($1) >> 1).inspect rescue $&
+			end
+			s
+		end
+	end
+
+	refine String do
+		def flush_right
+			[self.dom(:span, class: "right"), "".dom(:div, class: "clear")].dom
+		end
+		def exc type
+			type ? dom(:span, class: "bold") : dom(:span, class: "verification")
+		end
+		def vrf type
+			type ? self : dom(:span, class: "verification")
+		end
+		def markup spell_check = true
+			s = (+"").dom_escaped
+			i = 0
+			scan(/
+				(?<!`)(?<backticks>`+)(?<inline>.+?)\k<backticks>(?!`) | #`
+				\*\*(?<bold>[^*]+)\*\* |
+				\*(?<italic>[^*]+)\* |
+				\{(?<link>[^{}]+)\}|
+				\z # This is for iterating over the last non-matching part
+			/x) do
+				inbetween = self[i...$~.begin(0)].squeeze(" ")
+				s.concat(inbetween.spell_check(spell_check))
+				i = $~.end(0)
+				s.concat(
+					$~[:inline] &.strip &.dom(:code, class: "inline") ||
+					$~[:bold] &.spell_check(spell_check) &.dom(:span, class: "bold") ||
+					$~[:italic] &.spell_check(spell_check) &.dom(:span, class: "italic") ||
+					#! String with `@modul` assigned come directly from spec file, and are the ones that
+					#   may include a link.
+					$~[:link] && (@modul ? $~[:link].link(@modul) : $&.dom) ||
+					""
+				)
+			end
+			s
+		end
+		def spell_check bool
+			return self.dom unless bool and Manager.config(:spell_checker)
+			s = (+"").dom_escaped
+			i = 0
+			scan(Regexp.union(Manager.config(:spell_check_regex), /\z/)) do
+				inbetween = self[i...$~.begin(0)]
+				s.concat(inbetween.dom)
+				i = $~.end(0)
+				s.concat(
+					if Manager.config(:spell_checker).correct?($&) or
+					Manager.config(:case_sensitive)[$&] or
+					Manager.config(:case_insensitive)[$&.downcase]
+						$&.dom
+					else
+						Manager::Render.bad_doc($&)
+					end
+				)
+			end
+			s
+		end
+		def link orig_modul
+			case self
+			#! external link
+			when %r[\A(?:(?<text>[^=]+),\s*)?(?<href>[a-z]+://.+)]
+				($~[:text] || $~[:href]).dom(:a, href: $~[:href])
+			#! internal link
+			when /\A(?:(?:(?<singleton><<)?(?<slf>(?:\w|::)+))?(?<type>#|\.|::|=))?(?<feature>.+)/
+				#! This part of code corresponds to `Manager#_spec`.
+				singleton, slf, type, feature = $~[:singleton], $~[:slf], $~[:type], $~[:feature]
+				slf = slf ? Module.join(orig_modul, slf) : orig_modul
+				modul =
+				if singleton then slf.singleton_class
+				elsif slf == Manager::Main then Object
+				else slf
+				end
+				i =
+				case type
+				when "="
+					headers = Manager.current.described_headers(slf, feature.split("="))
+					if headers.nil? then nil
+					elsif headers[1] then true
+					else
+						s = "#{"(#{slf}) " unless slf == orig_modul}"\
+						"#{headers.first.i}. #{headers.first.source_item}"
+						Manager.current.i(slf, :module, headers.first)
+					end
+				when "#"
+					Manager.current.i(modul, :instance, feature.to_sym)
+				when "."
+					Manager.current.i(modul, :singleton, feature.to_sym)
+				when "::", nil
+					Manager.current.i(modul, :constant, feature.to_sym) ||
+					Manager.current.i(Module.join(modul, feature), :module, nil)
+				end
+				s ||= self.dom(:code, class: "inline")
+				case i
+				when Integer then s.dom(:a, href: "#feature#{i}")
+				when nil then Manager::Render.bad_doc("[Missing link target: #{self}]")
+				when true then Manager::Render.bad_doc("[Ambiguous link target: #{self}]")
+				end
+			else
+				Manager::Render.bad_doc("[Invalid link format: #{self}]")
+			end
+		end
+		def block_code language
+			CodeRay.scan(self, language).div(Manager::CodeRayOption).dom_escaped
+		end
+		def minify_css
+			#! Just a simple oneliner. Not seriously optimizing to the last bit.
+			gsub(/(?<=\W)\s+/, "").gsub(/\s+/, " ")
+		end
+		def message_format; self end
+		def bt; end
+	end
+
+	refine Exception do
+		def message_format
+			"#{self.class}. #{message.sub(/./, &:upcase).sub(/(?<=[^.])\z/, ".").tr("'", "`")}" #'
+		end
+		def bt
+			#! Ruby bug. `backtrace_locations` is sometimes `nil`.
+			if a = backtrace_locations
+				fs, ls, ms = a.map(&:absolute_path), a.map(&:lineno), a.map(&:base_label)
+			elsif a = backtrace
+				fs, ls, ms =
+				a.map{|s| s.match(/\A([^:]+):(\d+):in `([^']+)'\z/).captures}.transpose
+			else
+				return
+			end
+			Manager::Render::Backtrace.new([fs, ls, ms.unshift("")[0...-1]].transpose)
+		end
+	end
+
+	refine NameError do
+		def bt
+			#! Ruby bug. `backtrace_locations` is sometimes `nil`.
+			if a = backtrace_locations
+				fs, ls, ms = a.map(&:absolute_path), a.map(&:lineno), a.map(&:base_label)
+			elsif a = backtrace
+				fs, ls, ms =
+				a.map{|s| s.match(/\A([^:]+):(\d+):in `([^']+)'\z/).captures}.transpose
+			else
+				return
+			end
+			Manager::Render::Backtrace.new([fs, ls, ms.unshift(name.to_s)[0...-1]].transpose)
+		end
+	end
+
+	refine SyntaxError do
+		def message_format
+			message, code, i = message().chomp.split($/)
+			[
+				message.split(":", 3).last.strip.sub(/./, &:upcase).tr("'", "`"),
+				": ",
+				if code and i
+					i = i.length - 2
+					[code[0..i].dom(:span, class: "underline"), code[(i + 1)..-1]]
+					.dom(:code, class: "inline")
+				end,
+				".",
+			].dom
+		end
+	end
+
+	refine Array do
+		def select_items mode; mode == :user ? reject(&:dev?) : self end
+		def list depth, mode = nil
+			chunk{|e| e.bullet(depth)}.flat_map do
+				|bullet, items|
+				case bullet
+				when "*" then items.items(depth).dom(:ul)
+				when "#" then items.items(depth).dom(:ol)
+				#! Cannot use `nil` here due to a peculiarity of `chunk`.
+				when true then items.map{|e| e.render(mode)}
+				end
+			end
+		end
+		def items depth
+			slice_before{|e| e.bullet(depth + 1) == true}
+			.map{|items| items.list(depth + 1).dom(:li)}
+		end
+	end
+
+	refine Proc do
+		def inspect
+			f, l = source_location
+			"{(#{Manager::Render.relative_path(f)}:#{l})}"
+		end
+	end
+end)
+
+class Manager
+	MouseFocus = {onmouseover: "this.focus()", onmouseout: "this.blur()", tabindex: "0"}
+	def render mode:, title:
+		title_mode =
+		case mode
+		when :dev then "Developer's Chart"
+		when :user then "User's Manual"
+		end
+#!		"<!DOCTYPE html>" +
+		[
+			[
+				dom(:meta, charset: "UTF-8"),
+				File.read(Manager.config(:theme)).minify_css.dom(:style),
+				File.read(Manager.config(:highlight)).minify_css.dom(:style),
+				[*title, title_mode].join(" ").dom(:title),
+			].dom(:head),
+			[
+				(left(title) if mode == :dev),
+				#! Render `main` before `@top` to reflect error counts (bad links and spelling)
+				#   added during rendering of `main` .
+				[main(mode), @top.render(mode, title)].reverse
+				.dom(:div, id: "right"),
+				File.read(File.expand_path("#{__dir__}/js")).dom(:script),
+			].dom(:body, id: mode)
+		].dom(:html)
+	end
+	protected def left title
+		latest = @files.map{|_, h| h[:mtime]}.compact.max
+		[
+			[title && "“#{title}” ", "Developer's Chart"].dom(:span, id: "top-title"),
+			if @gemspec; [
+				"Gem Spec".dom(:span, class: "head").dom(:div, class: "p"),
+				[
+					Array.new(2).dom(:col, :colgroup),
+					@gemspec.instance_variables.map do
+						|k|
+						v = @gemspec.instance_variable_get(k)
+						v = case v; when Array; v.join(", "); else v.to_s end
+						[k.to_s.delete("@").gsub("_", " "), v]
+					end.dom(:td, :tr, :tbody),
+				].dom(:table, id: "gemspec", **MouseFocus).dom(:div, class: "tablewrapper"),
+			].dom end,
+			"Base Directory".dom(:span, class: "head").dom(:div, class: "p"),
+			Render.relative_path.dom(:code),
+			"Files".dom(:span, class: "head").dom(:div, class: "p"),
+			[
+				Array.new(5).dom(:col, :colgroup),
+				(
+#					[%w[Listed Category Name Version Lines]] +
+					[%w[Category Name Version Lines]] +
+					[
+						[
+#							"",
+							"Depended",
+							"#{RUBY_ENGINE}".dom(:code),
+							"#{RUBY_VERSION}p#{RUBY_PATCHLEVEL}",
+							"",
+						],
+						*Gem.loaded_specs
+						.map{|_, g| ["Depended", g.name.dom(:code), g.version.to_s, ""]},
+#						.map{|_, g| ["", "Depended", g.name.dom(:code), g.version.to_s, ""]},
+						*@files.map.with_index do
+							|(f, h), i|
+							[
+#								i.zero? ? "" : checkbox("segment", "file_#{i}"),
+								i.zero? ? "Specification" : (f ? coverage(f) : "Unknown source"),
+								f && Render.relative_path(f).dom(:code, style: "word-break:break-all;"),
+								h[:mtime]&.strftime("%Y-%m-%d %H:%M")
+								&.dom(:div, class: ("bold" if h[:mtime] == latest)),
+								"#{h[:lines]}",
+							]
+						end
+					]
+				).dom(:td, :tr, :tbody),
+			].dom(:table, id: "files").dom(:div, class: "tablewrapper"),
+		].dom(:div, id: "left")
+	end
+	protected def coverage f
+		a = @coverage[f]
+		total, missed = a.compact.length, a.count(0)
+		[
+			"%0.2f%% Tested".%(100 * (total - missed).to_f/total)
+			.dom(:span, "data-file": f, "data-coverage": a.join(","), onclick: "coverage(this)"),
+			#! Cannot use `display:none` for style as that would avoid the file from being loaded.
+#			dom(:object, data: f, type: "text/plain", style: "height:0;width:0;"),
+		].dom
+	end
+	protected def main mode
+		spell_check = Manager.config(:spell_check)
+		if mode == :dev and spell_check
+			Manager.config(spell_checker: Manager::Spellcheck.new(spell_check))
+			Manager.config(spell_check_regex: Manager::Spellcheck.regex(spell_check))
+		end
+		Manager.counts[:bad_doc] = 0
+		@specs.map do
+			|modul, h|
+			next if mode == :user and h[[:module, nil]].hidden
+			h.map do
+				|(type, feature), spec|
+				next if mode == :user and spec.header.dev?
+				[
+					spec.header.render(mode, spec.i),
+					(items = spec.items.compact.chunk(&:dev?).map do
+						|dev, items|
+						(mode == :dev || dev.!) &&
+						items.list(0, mode).dom(:div, class: (dev ? "dev-item" : "user-item")) || nil
+					end).dom(:div, class: "feature-contents")
+				].dom(:div, class: "feature",
+				onclick: (spec.header.onclick if items.any? or spec.header.is_a?(Render::ModuleHeader)))
+			end.dom(:div, class: "module")
+		end.dom(:div, id: "main", **MouseFocus)
+	ensure
+		Manager.config(:spell_checker) &.close
+		Manager.config(spell_checker: nil)
+	end
+	protected def checkbox name, value
+		dom(:input, type: "checkbox", name: name, value: value, checked: "")
+	end
+end
+
+class Manager::Console
+	#! Since this message may be displayed after the last `Reading <file>:<line>...` message,
+	#   the order is backtrace from first called to last called, then message.
+	def self.abort(e)
+		e = RunTimeError.new(e) unless e.kind_of?(Exception)
+		Kernel.abort "#$/#{e.bt}#$/#{e.message}"
+	end
+end
+
+class Manager::Render
+	def self.relative_path path = nil
+		return Manager.config(:bdir_expanded).to_s unless path
+		[
+			Pathname.new(path).relative_path_from(Manager.config(:bdir_expanded)).to_s ,
+			path,
+		].min_by(&:length)
+	end
+	def self.bad_doc s
+		i_dev = Manager.counts[:bad_doc] += 1
+		s.dom(:span, class: "tag bad_doc")
+		.dom(:span, class: "anchor", id: "bad_doc#{i_dev}")
+	end
+
+	class UserItem
+		def bullet depth; true end
+		def header?; false end
+		def dev?; false end
+		def evaluate; self end
+		attr_reader :source_item
+	end
+
+	class DevItem
+		def bullet depth; true end
+		def header?; false end
+		def dev?; true end
+		def evaluate; self end
+	end
+
+	class UserHeaderDummy
+		def header?; true end
+		def dev?; false end
+		def evaluate; self end
+	end
+
+	class DevHeaderDummy
+		def header?; true end
+		def dev?; true end
+		def evaluate; self end
+	end
+
+	module ModuleHeader
+		def initialize modul, spec, visibility
+			@modul, @spec = modul, spec
+			@visibility = Tag.new(dev?, visibility.to_s)
+		end
+		def render mode, i
+			[
+				@visibility.render(mode), "\u2002",
+				@modul.class.name.downcase,
+				" ",
+				@modul.clean_name.dom(:span, class: "feature-name"),
+				((mode != :user) || nil) && (@spec.documentation || nil) &&
+				["\u2002", @spec.documentation.render(mode)],
+			].dom(:h1, class: "module-header", id: (i && "feature#{i}"))
+		end
+		def onclick; "toggleModuleContents(this)" end
+	end
+
+	class UserModuleHeader < UserHeaderDummy
+		include ModuleHeader
+	end
+
+	class DevModuleHeader < DevHeaderDummy
+		include ModuleHeader
+	end
+
+	module FeatureHeader
+		def initialize modul, type, feature, spec
+			@modul, @type, @feature, @spec = modul, type, feature, spec
+			@visibility =
+			case @type
+			when :module_as_constant
+				ModuleAsConstantTag.new(spec.alts[feature].class.name.downcase)
+			else
+				Tag.new(dev?, spec.alts[feature] &.visibility &.to_s || "Unimplemented")
+			end
+		end
+		def render mode, i
+			[
+				@visibility && [@visibility.render(mode), "\u2002"],
+				@spec.type && [@spec.type.render(mode), "\u2002"],
+				@modul.clean_name,
+				case @type
+				when :constant, :module_as_constant then "::"
+				when :singleton then "."
+				when :instance then "#"
+				end,
+				case @type
+				when :module_as_constant
+					@feature.to_s.dom(:span, class: "feature-name")
+					.dom(:a, href: "#feature#{Manager.current.i(@spec.alts[@feature], :module, nil)}")
+				else
+					@feature.to_s.dom(:span, class: "feature-name")
+				end,
+				((mode != :user) || nil) && (@spec.documentation || nil) &&
+				["\u2002", @spec.documentation.render(mode)],
+				@spec.aliases && [
+					"\u2002(alias: ",
+					"#{@spec.aliases.map{|sy| sy.to_s.dom(:span, class: "feature-name")}.join(", ")})"
+					.dom_escaped,
+				],
+			].dom(:h2, id: (i && "feature#{i}"))
+		end
+		def onclick
+			case @type
+			when :module_as_constant then nil
+			else "toggleFeatureContents(this)"
+			end
+		end
+	end
+
+	class UserFeatureHeader < UserHeaderDummy
+		include FeatureHeader
+	end
+
+	class DevFeatureHeader < DevHeaderDummy
+		include FeatureHeader
+	end
+
+	class AncestorDiagrams < DevItem
+		def initialize modul
+			@diagrams =
+			[
+				AncestorDiagram.new(modul),
+				AncestorDiagram.new(modul.singleton_class),
+			]
+		end
+		def render mode; @diagrams.map(&:render).dom end
+	end
+
+	class AncestorDiagram
+		@@mixins = {}
+		def initialize modul; @modul = modul end
+		def render
+			@modul.ancestors.grep(Class).tap{|a| a.unshift(@modul) if a.empty?}
+			.map do
+				|modul|
+				[
+					mixin(modul)[:included].reverse
+					.flat_map{|e| [link(e).dom(:div), "\u250a".dom(:div)]},
+					link(modul).dom(:div, class: "baseline"),
+					mixin(modul)[:prepended].reverse
+					.flat_map{|e| ["\u250a".dom(:div), link(e).dom(:div)]},
+				].dom(:div, class: "mixins")
+			end
+			.join(" &lt;\u00a0").dom_escaped.dom(:div, class: "diagram")
+		end
+		protected def mixin modul
+			@@mixins[modul] ||=
+			begin
+				mixin = modul.ancestors
+				if modul.is_a?(Class) and modul.superclass
+					mixin = mixin[0...-modul.superclass.ancestors.length]
+				end
+				i = mixin.index(modul)
+				{prepended: mixin[0...i], included: sanitize(mixin)[i + 1..-1]}
+			end
+		end
+		protected def sanitize a
+			a - [Manager::MethodSignatureItem]
+		end
+		protected def link modul
+			s = modul.clean_name
+			if modul != @modul and modul.singleton_class != @modul and
+				i = Manager.current.i(modul, :module, nil)
+				s.dom(:a, href: "#feature#{i}")
+			else
+				s
+			end
+		end
+	end
+
+	class Implementations < DevItem
+		def initialize implementations
+			@implementations = implementations.compact
+			@main_visibility = implementations.first &.visibility
+		end
+		def render mode
+			if mode == :dev and @implementations.empty?.!
+				[
+					"Implementation candidates".dom(:span, class: "head").dom(:div, class: "p"),
+					@implementations.map{|e| e.render(mode, @main_visibility)}.dom(:ul),
+				].dom(:div, class: "p")
+			end
+		end
+	end
+
+	module ConstantValue
+		attr_reader :visibility, :location
+		def initialize visibility, location, value
+			@visibility, @location, @value = visibility, location, value
+		end
+		def render mode
+			if @visibility
+				[
+					"Value".dom(:span, class: "head"),
+					"\u2002",
+					@value.inspect.dom(:code, class: "inline"),
+				].dom(:div, class: "p")
+			end
+		end
+	end
+
+	class UserConstantValue < UserItem
+		include ConstantValue
+	end
+
+	class DevConstantValue < DevItem
+		include ConstantValue
+	end
+
+	class Assignment < DevItem
+		def initialize visibility, location
+			@visibility, @location  = visibility, location
+		end
+		def render mode
+			if mode == :dev and @visibility
+				[
+					"Implementation".dom(:span, class: "head").dom(:div, class: "p"),
+					@location &&
+					["\u2002(", Manager::Render.relative_path(@location.join(":")), ")\u2002"]
+					.dom(:code, :span, class: "dev-text").flush_right
+				].dom(:div, class: "p indent")
+			end
+		end
+	end
+
+	class Implementation
+		attr_reader :visibility, :location
+		def initialize alt, visibility, location
+			@alt = alt.to_s
+			@visibility = visibility
+			@location = location
+		end
+		def render mode, main_visibility
+			[
+				@alt.dom(:code, class: "inline"),
+				(@visibility != main_visibility || nil) && ["\u2002", "(#@visibility)"],
+				@location &&
+				["\u2002(",  Manager::Render.relative_path(@location.join(":")), ")\u2002"]
+				.dom(:code, :span, class: "dev-text").flush_right,
+			].dom(:li, class: "implementation")
+		end
+	end
+
+	class NilHeaderClass < UserHeaderDummy
+		def render mode, i; "".dom(:div) end
+		def onclick; end
+	end
+	NilHeader = NilHeaderClass.new
+
+	class DescribedHeader < UserHeaderDummy
+		attr_reader :i, :source_item
+		def initialize modul, depth, source_item
+			@depth, @source_item = [depth, 5].min, source_item
+			Manager.counts[[:header, modul, depth]] += 1
+			(depth + 1..Manager.counts[[:header_depth, modul]])
+			.each{|n| Manager.counts.delete([:header, modul, n])}
+			Manager.counts[[:header_depth, modul]] = depth
+			@i = (1..depth).map{|n| Manager.counts[[:header, modul, n]]}.join(".")
+		end
+		def render mode, i
+			"#@i. #@source_item".markup.dom("h#{@depth + 1}", id: (i && "feature#{i}"))
+		end
+		def onclick; "toggleFeatureContents(this)" end
+	end
+
+	class TestDescription < DevItem
+		def initialize depth, source_item
+			@source_item = source_item
+			Manager.counts[[:test, depth]] += 1
+			(depth + 1..Manager.counts[:test_depth]).each{|n| Manager.counts.delete([:test, n])}
+			Manager.counts[:test_depth] = depth
+			@i = (1..depth).map{|n| Manager.counts[[:test, n]]}.join(".")
+		end
+		def render mode
+			["Test #@i.".dom(:span, class: "head"), "\u2002", @source_item.markup(false)]
+			.dom(:div, class: "p")
+		end
+	end
+
+	module Line
+		def render mode; dom(:hr) end
+		def source_item; "-" end
+	end
+
+	class UserLineClass < UserItem
+		include Line
+	end
+	UserLine = UserLineClass.new
+
+	class DevLineClass < DevItem
+		include Line
+	end
+	DevLine = DevLineClass.new
+
+	class MethodSignature < UserItem
+		def initialize h; @h = h end
+		def render mode
+			@h.map.with_index do
+				#! "Space before `#{k}` is to avoid illicit parsing in case `k` is empty.
+				|(k, v), i|
+				["Usage".dom(:span, class: "head", style: ("visibility:hidden;" unless i.zero?)),
+				"\u2002` #{k}` → #{v}".markup(false)]
+			end.dom
+		end
+	end
+
+	module Paragraph
+		def initialize source_item; @source_item = source_item end
+		def render mode; @source_item.markup.dom(:div, class: "p") end
+	end
+	
+	class UserParagraph < UserItem
+		include Paragraph
+	end
+
+	class DevParagraph < DevItem
+		include Paragraph
+	end
+	
+	class Table < UserItem
+		def initialize a; @table = a end
+		def render mode
+			@table.map{|row| row.map{
+				|cell|
+				text_align =
+				case cell
+				when /\A\s.*\s\z/ then :center
+				when /\A\s/ then :right
+				when /\s\z/ then :left
+				end
+if text_align #! Ruby bug
+				cell.strip.squeeze(" \t\r\n").dom(:td, style: "text-align:%s;" % text_align)
+else
+				cell.strip.squeeze(" \t\r\n").dom(:td)
+end
+			}}.dom(:tr, :table)
+		end
+	end
+
+	module List
+		def initialize depth, source_item; @depth, @source_item = depth, source_item end
+		def bullet depth; @depth[depth] || true end
+		def render mode; @source_item.markup end
+	end
+
+	class UserList < UserItem
+		include List
+	end
+
+	class DevList < DevItem
+		include List
+	end
+
+	module Cite
+		def initialize source_item; @source_item = source_item end
+		def render mode; @source_item.markup.dom(:blockquote) end
+	end
+	
+	class UserCite < UserItem
+		include Cite
+	end
+
+	class DevCite < DevItem
+		include Cite
+	end
+
+	module Code
+		def initialize source_item, lang; @source_item, @lang = source_item, lang end
+		def render mode; @source_item.block_code(@lang) end
+	end
+
+	class UserCode < UserItem
+		include Code
+	end
+
+	class DevCode < DevItem
+		include Code
+	end
+
+	module Image
+		def initialize source_item, path, style = nil
+			@source_item, @path, @style = source_item, path, style
+			@i_dev = Manager.counts[[:dev, :image]] += 1
+			@i_user = Manager.counts[[:user, :image]] += 1 unless dev?
+		end
+		def render mode
+			style = @style &.map{|a| a.join(":") << ";"}&.join
+			i = case mode
+			when :dev then @i_dev
+			when :user then @i_user
+			end
+			[
+				dom(:img, alt: @source_item, src: @path, style: style),
+				"Figure #{i}. #@source_item".markup.dom(:figcaption),
+			].dom(:figure)
+		end
+	end
+
+	class UserImage < UserItem
+		include Image
+	end
+
+	class DevImage < DevItem
+		include Image
+	end
+
+	class Setup < DevItem
+		def initialize exp, output
+			@exp = exp
+			@output = output && StandardOutput.new(output)
+		end
+		def render mode
+			[
+				"Setup code".dom(:span, class: "head").dom(:div, class: "p"),
+				@exp.render.block_code(:ruby),
+				*@output &.render
+			].dom
+		end
+	end
+
+	class TeardownClass < DevItem
+		def evaluate
+			Manager.context.teardown
+			self
+		end
+		def render mode
+			"Teardown".dom(:span, class: "head").dom(:div, class: "p")
+		end
+	end
+	Teardown = TeardownClass.new
+
+	class Annotation < DevItem
+		Joiner = " "
+		def initialize global, tag, locations, source_item
+			@global, @tag, @locations = global, tag, locations
+			@source_item =
+			case @tag
+			when String, Integer then source_item
+			when :debug then "Debugging command"
+			when :comment then "Comment line"
+			end
+		end
+		def concat? global, tag, locations, source_item
+			return false unless global == @global and tag == @tag
+			@locations.concat(locations)
+			@source_item.concat(Joiner)
+			@source_item.concat(source_item)
+			true
+		end
+		def self.concat? e, global, tag, locations, source_item
+			self === e and e.concat?(global, tag, locations, source_item)
+		end
+		def evaluate
+			@annotation =
+			(@tag.is_a?(Symbol) || @locations.any?{|_, text, _| text}) ? "agenda" : "log"
+			@bullet = Bullet.new(nil, @annotation, message: @source_item)
+			self
+		end
+		def render mode
+			[
+				@bullet.render.dom(:span, class: "#@annotation text"),
+				[
+					"\u2002(",
+					[*format_locations, *(@tag.markup(false) if @tag.is_a?(String))]
+					.join("; ").dom_escaped,
+					")\u2002",
+				].dom(:code).flush_right,
+			].dom(:div, class: "p indent anchor", id: @bullet.id)
+		end
+		protected def format_locations
+			@locations.chunk{|f, _, _| f}.map{|f, a|
+				"#{Manager::Render.relative_path(f)}:#{
+					a.chunk_while{|(_, text1, l1), (_, text2, l2)| text1 == text2 and l1.succ == l2}
+					.map{|a|
+						if a.length >= 3 then
+							s = a.values_at(0, -1).map{|_, _, l| l}.join("\u2013").dom_escaped
+							a.first[1] ? s.dom(:span, class: "bold") : s
+						else
+							a.first[1] ? a.map{|_, _, l| l.to_s.dom(:span, class: "bold")} : a.map{|_, _, l| l}
+							.join(", ").dom_escaped
+						end
+					}.join(", ").dom_escaped
+				}"
+			}.join(", ").dom_escaped unless @locations.empty?
+		end
+	end
+
+	class Result < DevItem
+		def initialize exp, value, error, output, note: nil, alts: nil
+			@exp, @value, @bullet = exp, value, Bullet.new(nil, value.to_s)
+			@error, @output, @note, @alts = error, output, note, alts
+		end
+		def render mode
+			[
+				[
+					@bullet.render,
+					@exp && ["\u2002", @exp.render.dom(:code, class: "inline")],
+					*("\u2003(#@note)" if @note),
+				].dom(:div, class: "indent dev-text #@value p"),
+				*(@output || @error) && [
+					*@output && StandardOutput.new(@output).render,
+					*@error &.message_format &.markup(false) &.dom(:span, class: "dev-text #@value"),
+					*@error &.bt &.render,
+				].dom(:div, class: "p indent"),
+				*@alts&.map do
+					|alt, (error, output)|
+					[
+						alt.to_s.dom(:code, class: "inline"),
+						":\u2002",
+						*output && StandardOutput.new(output) &.render,
+						*error &.message_format &.markup(false) &.dom(:span, class: "dev-text #@value"),
+						*error &.bt &.render,
+					]
+				end &.dom(:li, :ul),
+			].dom(:div, class: "anchor", id: @bullet.id)
+		end
+	end
+
+	class Benchmark < DevItem
+		def initialize exp, results
+			@exp, @results = exp, results
+			@norm = results[results.keys.first][:ips]
+			@bullet = Bullet.new(nil, "benchmark")
+		end
+		def render mode
+			[
+				[
+					@bullet.render,
+					"\u2002", @exp.render.dom(:code, class: "inline"),
+					"\u2003(benchmark)",
+				].dom(:div, class: "p indent benchmark"),
+				[
+					"Iterations per second (parabolic scale)".dom(:caption, class: "benchmark"),
+					Array.new(2).dom(:col, :colgroup),
+					@results.map do
+						|method, h|
+						ave = h[:ips]
+						err = h[:ips] * 0.01 * h[:sd]
+						[
+							method.to_s.dom(:code, class: "inline"),
+							[
+								"%<ips>.2e ± %<sd>.1f%%".%(h)
+								.dom(:div, class: "fill", **style(scale(ave - err))),
+								"".dom(:div, class: "minedge"),
+								"".dom(:div, class: "min", **style(scale(ave) - scale(ave - err))),
+								"".dom(:div, class: "max", **style(scale(ave + err) - scale(ave))),
+								"".dom(:div, class: "maxedge"),
+							].dom(:div, class: "barchart"),
+						]
+					end.dom(:td, :tr, :tbody)
+				].dom(:table, class: "barcharts"),
+			].dom(:div, class: "anchor", id: @bullet.id)
+		end
+		protected def scale v
+			1 - 1 / ((v / @norm) + 1)
+		end
+		protected def style v
+			{style: "width:%s%%;" % (v * 100.0).round(2)}
+		end
+	end
+
+	class Top
+		def initialize
+			@a = [
+				UserChartTag.new("displayMode(true, true)", "Modules", klass: "mode"),
+				UserChartTag.new("displayMode(false, true)", "Features", klass: "mode"),
+				UserChartTag.new("displayMode(false, false)", "Full", klass: "mode"),
+				DevChartTag.new("toggleUserItems(this)", "User Items", klass: "mode"),
+				UserNavigation.new(
+					"user-feature-navigation", "toggleFeatures(this, '%s', '%s')",
+					["Unimplemented", "protected", "private", "public"],
+					modal: true,
+				),
+				UserNavigation.new(
+					"user-feature-navigation", "toggleFeatures(this, '%s', '%s')",
+					["Constant", "Singleton method", "Instance method"],
+					["constant", "singleton", "instance"],
+					modal: true,
+				),
+				DevNavigation.new(
+					"dev-feature-navigation", "toggleFeatures(this, '%s', '%s')",
+					["Undocumented", "Hidden", "Misplaced", "Moved"],
+					modal: true,
+				),
+				DevNavigation.new(
+					"anchor-navigation", "toggleAnchors(this, '%s', '%s')",
+					["Missing doc", "Bad doc", "Agenda", "Log"],
+				),
+				DevNavigation.new(
+					"anchor-navigation", "toggleAnchors(this, '%s', '%s')",
+					["Missing test", "Bad test", "Untestable", "Bug", "Success", "Benchmark"]
+				),
+			]
+		end
+		def render mode, title
+			[
+				[
+					@a[0..2].map{|e| e.render(mode)}.dom(:span, class: "navigation"),
+					*@a[3..3].select_items(mode).map{|e| e.render(mode)}.tap{|a| break if a.empty?},
+					@a[4..10].select_items(mode).map{|e| e.render(mode)}.join("\u2002").dom_escaped,
+				].join("\u2502".dom(:span, class: "separator")).dom_escaped.dom(:div, id: "top"),
+				([title && "“#{title}” ", "User's Manual"].dom(:div, id: "top-title") if mode == :user),
+			].dom
+		end
+	end
+
+	class Expression
+		def initialize sample, type = nil, feature = nil, feature_args = nil
+			@sample, @type, @a = sample, type, []
+			if feature
+				args, kargs, pr = feature_args
+				@a.push(
+					[
+						feature,
+						args.map(&:inspect) + kargs.map{|k, e| "#{k}: #{e.inspect}"},
+						pr &.inspect,
+					]
+				)
+			end
+		end
+		def push verifiers, verifiers_args
+			@a.concat(verifiers.zip(verifiers_args).map do
+				|verifier, (args, kargs, pr)|
+				[
+					verifier,
+					args.map(&:inspect) + kargs.map{|k, e| "#{k}: #{e.inspect}"},
+					pr &.inspect,
+				]
+			end)
+			self
+		end
+		def render
+			s = @sample
+			s = _render(s, *@a.first, @a.length > 1, @type) unless @a.empty?
+			s = @a[1...-1].inject(s){|s, e| _render(s, *e, true)} unless @a.empty?
+			s = _render(s, *@a.last, false) if @a.length > 1
+			s
+		end
+		def to_s
+			s = @sample
+			s = _to_s(s, *@a.first, @a.length > 1, @type) unless @a.empty?
+			s = @a[1...-1].inject(s){|s, e| _to_s(s, *e, true)} unless @a.empty?
+			s = _to_s(s, *@a.last, false) if @a.length > 1
+			s
+		end
+		def _render sample, feature, suite, pr, emb, type = nil
+			if type == :constant
+				sample = sample == "Object" ? "" : "#{sample}::"
+				return [sample, feature.to_s.exc(type)].dom
+			end
+			case feature
+			when :==, :!=, :=~, :!~, :<, :>, :<=, :>=, :<=>, :===,
+			:**, :*, :/, :+, :-, :&, :|, :^, :<<, :>>
+				infix = true
+				a =
+				[sample, " ", feature.to_s.exc(type),  " #{suite.join(", ")}#{pr}".vrf(type)]
+			when :[]
+				infix = false
+				a =
+				[sample, "[".exc(type), suite.join(", ").to_s.vrf(type), "]".exc(type), "#{pr}".vrf(type)]
+			when :[]=
+				infix = true
+				a =
+				[sample, "[".exc(type), "#{suite[0..-2].join(", ")}".vrf(type), "] = ".exc(type),
+					"#{suite[-1]}#{pr}".vrf(type)]
+			when /(?<attribute>.+)=/
+				infix = true
+				a =
+				[sample, ".".vrf(type), "#{$~[:attribute]} = ".exc(type),
+					"#{suite.join(", ")}#{pr}".vrf(type)]
+			when /(?<prefix>.+)@/
+				infix = false
+				a =
+				["#{$~[:prefix]}".exc(type), sample, "#{suite.join(", ")}#{pr}".vrf(type)]
+			else
+				infix = false
+				suite = suite.join(", ")
+				suite = "(#{suite})" unless suite.empty?
+				receiver = [sample, ".".vrf(type)].dom unless sample == "main"
+				a = [*receiver, feature.to_s.exc(type), "#{suite}#{pr}".vrf(type)]
+			end
+			(infix && emb ? ["(", *a, ")"] : a).dom
+		end
+		def _to_s sample, feature, suite, pr, emb, type = nil
+			if type == :constant
+				sample = sample == "Object" ? "" : "#{sample}::"
+				return "#{sample}#{feature}"
+			end
+			case feature
+			when :==, :!=, :=~, :!~, :<, :>, :<=, :>=, :<=>, :===,
+			:**, :*, :/, :+, :-, :&, :|, :^, :<<, :>>
+				infix = true
+				s = "#{sample} #{feature} #{suite.join(", ")}#{pr}"
+			when :[]
+				infix = false
+				s = "#{sample}[#{suite.join(", ")}]#{pr}"
+			when :[]=
+				infix = true
+				s = "#{sample}[#{suite[0..-2].join(", ")}] = #{suite[-1]}#{pr}"
+			when /(?<attribute>.+)=/
+				infix = true
+				s = "#{sample}.#{$~[:attribute]} = #{suite.join(", ")}#{pr}"
+			when /(?<prefix>.+)@/
+				infix = false
+				s = "#{$~[:prefix]}#{sample}#{suite.join(", ")}#{pr}"
+			else
+				infix = false
+				suite = suite.join(", ")
+				suite = "(#{suite})" unless suite.empty?
+				feature = "#{sample}.#{feature}" unless sample == "main"
+				s = "#{feature}#{suite}#{pr}"
+			end
+			infix && emb ? "(#{s})" : s
+		end
+	end
+
+	class StandardOutput
+		def initialize s; @s = s end
+		def render
+			[
+				"Standard output".dom(:span, class: "head").dom(:div, class: "p"),
+				@s.ansi2html.dom(:pre).dom(:div, class: "code").dom(:div, class: "CodeRay")
+			].dom
+		end
+	end
+
+	class Backtrace
+		def initialize a
+			@a = a
+			unless Manager.config(:debug)
+				@a = @a.reject{|f, *| Manager::DebugDirs.any?{|dir| f &.start_with?(dir)}}
+			end
+		end
+		def render
+			return if @a.empty?
+			[
+				Array.new(2).dom(:col, :colgroup),
+				@a.map do
+					|f, l, method|
+					listed = f && Manager.current.files.assoc(f).!.!
+					[
+						[Manager::Render.relative_path(f), l].join(":")
+						.dom(:code, class: listed ? nil : "gray"),
+						method.dom(:code, class: listed ? "inline" : "inline gray"),
+					]
+				end.dom(:td, :tr, :tbody)
+			].dom(:table, class: "backtrace")
+		end
+		def to_s
+			return "" if @a.empty?
+			@a.map do
+				|f, l, method| [Manager::Render.relative_path(f), l, "`#{method}`"].join(":")
+			end.reverse.join($/)
+		end
+	end
+
+	class Bullet
+		def initialize label, value = label.tr(" ", "_").downcase, message: nil
+			@label, @value = label, value
+			@i_dev = Manager.counts[@value.to_sym] += 1
+			@message = message &.markup(false)
+		end
+		def render
+			[
+				"\u200b".dom(:span, class: "hang-indent"),
+				(@label || @i_dev.to_s).dom(:span, class: "tag #@value"),
+				*@message && ["\u2002", @message].dom(:span, class: "dev-text #@value"),
+			].dom
+		end
+		def id; "#@value#@i_dev" end
+	end
+
+	class Tag < DevItem
+		def initialize dev, label, value = label.tr(" ", "_").downcase, message: nil
+			@label , @value = label, value
+			@i_dev = Manager.counts[[:dev, @value.to_sym]] += 1
+			@i_user = Manager.counts[[:user, @value.to_sym]] += 1 unless dev
+			@message = message &.markup(false)
+		end
+		def render mode
+			i = case mode
+			when :dev then @i_dev
+			when :user then @i_user
+			end
+			[
+				(@label || i.to_s).dom(:span, class: "tag #@value"),
+				*@message && ["\u2002", @message].dom(:span, class: "dev-text #@value"),
+			].dom(:span, class: "anchor", id: "#@value#{i}")
+		end
+	end
+
+	class ModuleAsConstantTag < DevItem
+		def initialize type; @type = type end
+		def render mode; "(#@type)" end
+	end
+
+	class BulletWrapper < DevItem
+		def initialize label, value = label.tr(" ", "_").downcase, message: nil
+			@bullet = Bullet.new(label, value, message: message &.markup(false))
+		end
+		def render mode
+			@bullet.render.dom(:div, class: "p indent anchor", id: @bullet.id)
+		end
+	end
+
+	module ChartTag
+		def initialize onclick, label, value = nil, klass: nil, modal: false
+			@onclick = onclick
+			@label = label
+			@value = value
+			@klass = klass || value
+			@modal = modal
+		end
+		def count mode
+			return unless @value
+			count = Manager.counts[@modal ? [mode, @value.to_sym] : @value.to_sym]
+			count unless count.zero?
+		end
+		def render mode
+			[
+				@label.dom(:span, class: "tag #@klass", onclick: @onclick),
+				*if @value
+					return unless count = count(mode)
+					["\u2002", count.to_s.dom(:span, class: @value, id: "tagsum-#@value"), "\u2002"]
+				end,
+			].dom
+		end
+	end
+
+	class UserChartTag < UserItem
+		include ChartTag
+	end
+
+	class DevChartTag < DevItem
+		include ChartTag
+	end
+
+	module Navigation
+		def initialize level, onclick, names, classes = names.map{|s| s.tr(" ", "_").downcase},
+			modal: false
+			@onclick, @names, @classes = onclick, names, classes
+			@id = "#{level}#{Manager.counts[level] += 1}"
+			@modal = modal
+		end
+		def render mode
+			chart_klass = case self
+			when UserItem then UserChartTag
+			when DevItem then DevChartTag
+			end
+			tags = @names.zip(@classes).map do
+				|name, klass|
+				chart_klass.new(@onclick % [klass, @id], name, klass, modal: @modal).render(mode)
+			end
+			[
+				*tags,
+				[
+					"\u25c2"
+					.dom(:span, class: "tag arrow", onclick: "navigateTag(this.parentNode, -1)"),
+					"\u25b8"
+					.dom(:span, class: "tag arrow", onclick: "navigateTag(this.parentNode, 1)"),
+					"\u2002",
+					[
+						"1".dom(:span, class: "current"),
+						"/",
+						"".dom(:span, class: "sum"),
+						"+",
+						"".dom(:span, class: "excluded"),
+					].dom(:span, class: "statistics"),
+					"\u2002",
+				].dom(:span, id: @id, "data-tags": @classes.join(" ")),
+			].dom(:span, class: "navigation", style: ("display: none;" unless tags.any?))
+		end
+	end
+
+	class UserNavigation < UserItem
+		include Navigation
+	end
+
+	class DevNavigation < DevItem
+		include Navigation
+	end
+end

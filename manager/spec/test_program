@@ -1,0 +1,71 @@
+#! This is an additional program code to be loaded when running manager on itself
+#!! This comment is written in the main context, and should have global scope, and be displayed
+#    in the main context.
+#!! global_1: This comment is written in the main context, and should have global scope, 
+#   and be displayed in the main context.
+
+module TestA
+	#!! global_1;
+	#!! global_2: This comment is also written inside a method definition, and should have 
+	#   global scope, and be displayed in the main context.
+	TestPublicConstant = 1
+	TestPrivateConstant = 1
+	private_constant :TestPrivateConstant
+end
+
+class TestB
+	def foo; end
+	alias boo foo
+	Bar = "Interned string".freeze
+	Foo = +"Non interned string"
+end
+
+def NotConstantButMethod; end
+
+def test_foo
+	#!! global_1: This comment is written inside a method definition, and should have global 
+	#   scope, and be displayed in the main context.
+	#! local1:
+	# This comment spans
+	# over multiple lines.
+	#! Comment without a tag should be an Agenda.
+end
+
+def test_nest_a; test_nest_b end
+def test_nest_b; test_nest_c end
+def test_nest_c; test_nest_d end
+def test_nest_d; test_nest_e end
+def test_nest_e x, y; end
+
+def test_nest_f; test_nest_g end
+def test_nest_g; test_nest_h end
+def test_nest_h; test_nest_i end
+def test_nest_i; raise "Raised" end
+
+def check_int
+	Integer(int) rescue false
+end
+def check_int__1 int
+	int.to_i.to_s == int
+end
+def check_int__2 int
+	int =~ /\A\d+\z/
+end
+
+def test_throw
+	throw(:yes, "correct")
+end
+
+def test_or a, b; end
+def test_or__foo a; end
+def test_or__bar a, b; :bar end
+def test_or__1 a, b; (a + b) - (a & b); end
+def test_or__2 a, b; (a - b) + (b - a); end
+def test_or__3 a, b; (a | b) - (a & b); end
+def test_or__4 a, b; (Set[*a] ^ Set[*b]).to_a; end
+
+def test_or_without_main__wrong a, b; :bar end
+def test_or_without_main__1 a, b; (a + b) - (a & b); end
+def test_or_without_main__2 a, b; (a - b) + (b - a); end
+def test_or_without_main__3 a, b; (a | b) - (a & b); end
+def test_or_without_main__4 a, b; (Set[*a] ^ Set[*b]).to_a; end

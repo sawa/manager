@@ -1,0 +1,97 @@
+#!ruby
+#frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+class Manager
+	class SanitizedObject < BasicObject
+		#! Instance methods (of any visibility) defined on `SanitizedObject` are:
+		#  __send__,
+		# :singleton_method_added, :singleton_method_removed, :singleton_method_undefined,
+		# :method_missing, :initialize
+		original_verbose, $VERBOSE = $VERBOSE, nil
+		undef_method :==, :equal?, :!, :!=, :instance_eval, :instance_exec, :__id__
+		$VERBOSE = original_verbose
+	end
+
+	class Setup
+	end
+
+	class Expr < SanitizedObject
+	end
+
+	class UnitTest < SanitizedObject
+	end
+
+	class Benchmark < SanitizedObject
+	end
+
+	module TesterRefinement
+		refine Manager::Setup do
+			def evaluate
+				result, error, output = Manager.context.setup(@exp.to_s, @f, @l)
+				case result
+				when :bad_test
+					Manager::Render::Result.new(@exp, result, error, output, note: "test")
+				when :success
+					Manager::Render::Setup.new(@exp, output)
+				end
+			end
+		end
+
+		refine Manager::Expr do
+			def tainted?
+				::RubyVM::InstructionSequence.compile(@s)
+			rescue ::SyntaxError
+				::Kernel.throw Context::All, [:bad_test, ::SyntaxError.new($stderr.string), nil]
+			end
+			def itself
+				::Manager.context.expr(@s, @location, @modifiers, @modifiers_args)
+			end
+		end
+
+		#! Allowing `BasicObject` instances to be the target of test
+		refine BasicObject do
+			def tainted?; end
+			def itself; self end
+		end
+
+		refine Manager::Benchmark do
+			def evaluate
+				if @feature_args.nil? and ::Manager.context.type == :constant
+					return ::Manager::Render::Result
+					.new(@exp, :bad_test, "Cannot benchmark a constant.", nil, note: "benchmark")
+				end
+				::Kernel.print "(Ctrl+C to skip) Benchmarking `#@exp'...\r"
+				$stdout.flush
+				result, *a = ::Manager.context.benchmark(@sample, @feature_args)
+				case result
+				when :bad_test, :untestable, :bug
+					::Manager::Render::Result.new(@exp, result, *a, note: "benchmark")
+				when :success
+					h = a.first
+					::Manager::Render::Benchmark.new(@exp, h) unless h.empty?
+				end
+			end
+		end
+
+		refine Manager::UnitTest do
+			def evaluate
+				if a = ::Manager.context.syntax_check_all(@sample, @feature_args, *@verifiers_args)
+					::Manager::Render::Result.new(@exp, *a)
+				elsif @verifiers.empty?
+					::Manager::Render::Result.new(@exp, :bad_test, "Missing a verification.", nil)
+				else
+					case result =
+					::Manager.context.unit_test(@sample, @feature_args, @referer, @verifiers, @verifiers_args)
+					when ::Hash
+						value = result.values.map(&:shift).first
+						::Manager::Render::Result.new(@exp, value, nil, nil, alts: result)
+					else
+						::Manager::Render::Result.new(@exp, *result)
+					end
+				end
+			end
+		end
+	end
+end

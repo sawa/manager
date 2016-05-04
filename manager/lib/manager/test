@@ -1,0 +1,404 @@
+#!ruby
+#frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+using Manager::ModuleRefinement
+using Manager::TesterRefinement
+
+class Manager::Binding
+	#!Wrapping in new module to make bare method definitions in `exp` (which would otherwise
+	# be evaluated in the `main` environment) to be evaluated locally. The methods will be
+	# defined in the singleton class of `@module`.
+	def initialize; @binding = Module.new.instance_eval{binding} end
+	def eval exp, f = nil, l = nil; @binding.eval(exp, *f, *l) end
+end
+
+class Manager::ExprProc < Proc
+	def initialize exp; @exp = exp end
+	def inspect; @exp end
+end
+
+class Manager::Setup
+	def initialize exp, bt
+		@exp, @f, @l = exp, bt.absolute_path, bt.lineno
+	end
+end
+
+class Manager::Expr
+	def initialize s, caller_locations
+		@s = s
+		@modifiers, @modifiers_args = [], []
+		bt = caller_locations.first
+		@location = [bt.absolute_path, bt.lineno]
+	end
+	def to_proc
+#		if @s.respond_to?(:to_proc)
+#			s = @s
+#			@s.to_proc.tap{|pr| def pr.inspect; s end}
+#		else
+			esc_exp = "\"#{@s.gsub('"', '\\"')}\""
+			::Kernel.eval("Manager::ExprProc.new(#{esc_exp})#@s", nil, *@location)
+#		end
+	end
+	def method_missing modifier, *args, **kargs, &pr
+		@modifiers.push(modifier)
+		@modifiers_args.push([args, kargs, pr])
+		self
+	end
+	def respond_to_missing? method, private = false
+		#! `respond_to_missing?` is called with `:to_hash` (and that is applied if positive) by Ruby
+		#    when `expr` occurs as an argument. Need to override the `true` being returned due to
+		#   `method_missing` being defined.
+		method == :to_hash ? false : super
+	end
+	def inspect
+		@exp ||= ::Manager::Render::Expression.new(@s).push(@modifiers, @modifiers_args)
+		@exp.to_s
+	end
+end
+
+class Manager::UnitTest
+	def initialize referer, sample, feature_args
+		@referer, @sample, @feature_args = referer, sample, feature_args
+		@verifiers, @verifiers_args = [], []
+	end
+	def method_missing verifier, *args, **kargs, &pr
+		@verifiers.push(verifier)
+		@verifiers_args.push([args, kargs, pr])
+		self
+	end
+end
+
+class Manager::Benchmark
+	def initialize sample, feature_args
+		@sample, @feature_args = sample, feature_args
+	end
+end
+
+class Manager::Context
+	#! `All` cannot be made private constant because it is used in `Expr#tainted?`.
+	All, Alt = Object.new, Object.new
+	InterruptTest = Proc.new{
+		StdoutOrig.print "\b\b\b\b\b"
+		throw All, [:untestable, "Skipped by user.", nil]
+	}
+	attr_reader :modul, :type, :alts
+	def initialize
+		@master_binding = Manager::Binding.new
+		@setups = []
+	end
+	alias teardown initialize
+	public :teardown
+	def set_master_binding exp
+		@setups.push(exp)
+	end
+	def set_branched_binding
+		@branched_bindings = @alts.each_with_object({}) do
+			|alt, h| h[alt] = @binding = Manager::Binding.new
+			@setups.each{|exp| begin silent_evaluate(exp); rescue Exception; end}
+		end
+		@receivers, @returns, @exceptions, @throws = {}, {}, {}, {}
+	end
+	def new_feature modul, type, alts
+		@modul, @type, @alts = modul, type, alts
+		@receivers, @returns, @exceptions, @throws = {}, {}, {}, {}
+	end
+	def setup exp, f, l
+		set_master_binding(exp)
+		catch(All) do catch(Alt) do
+			@binding = @master_binding
+			begin
+				evaluate(exp, f, l)
+				throw Alt, nil
+			rescue Exception => e
+				throw All, [:bad_test, e, @output]
+			end
+		end end || [:success, nil, @output]
+	ensure
+		@output = nil
+	end
+	def unit_test sample, feature_args, referer, verifiers, verifiers_args
+		if referer.!
+			set_branched_binding
+		elsif @branched_bindings.!
+			return [:untestable, "Missing a preceding successful unit test.", nil]
+		end
+		catch(All) do begin
+			Signal.trap("INT", &InterruptTest)
+			@alts.each_with_object({}) do	
+				|alt, h|
+				@binding = @branched_bindings[alt]
+				result = catch(Alt) do
+					exercise(alt, sample, feature_args) unless referer
+					first_verify(alt, referer, verifiers.first, verifiers_args.first) unless verifiers.empty?
+					verifiers.zip(verifiers_args).drop(1).each{|a| verify(*a)}
+					nil
+				end
+				if result
+					h[alt] = result
+				elsif @verifee.!
+					h[alt] = [
+						:bug,
+						begin
+							_referer = referer || "return"
+							referer_value = instance_variable_get("@#{_referer}s")[alt]
+							"The receiver of verification `#{verifiers.last}` is "\
+								"`#{@prev_verifee.inspect}`."\
+#							"The receiver of verification `#{verifiers.last}` is "\
+#								"`#{@prev_verifee.inspect}`. "\
+#							"The arguments are: "\
+#								"#{@last_verifier_args[0].map{|e| "`#{e.inspect}`"}.join(", ")},"\
+#							" keyword arguments are: "\
+#								"#{@last_verifier_args[1].map{|k, v| "`#{e.inspect}`: `#{e.inspect}`"}.join(", ")},"\
+#							" proc is: `#{@last_verifier_args[2].inspect}`."
+						end,
+						@output,
+					]
+				end
+				@output = nil
+			end
+			.tap{|h| return h.empty? ? [:success, nil, @output] : h}
+		ensure
+			Signal.trap("INT", &Manager::InterruptionInactive)
+		end end
+	end
+	def exercise alt, sample, feature_args
+		@exceptions.delete(alt)
+		@throws.delete(alt)
+		case @type
+		when :constant
+			@receivers.delete(alt)
+			unless feature_args.nil?
+				throw All, [:bad_test, "Constant invocation cannot take an argument.", nil]
+			end
+			unless alt =~ /\A[A-Z]\w*\z/ and @modul.const_defined?(alt)
+				@returns.delete(alt)
+				throw All, [:untestable, "The constant is unimplemented.", nil]
+			else
+				@returns[alt] = @modul.const_get(alt.to_s)
+			end
+		when :instance, :singleton
+			begin
+				@receivers[alt] = sample.itself
+			rescue Exception => e
+				@returns.delete(alt)
+				throw All, [:bad_test, e, @output]
+			end
+			args, kargs, pr = itself_all(feature_args) || [[], {}, nil]
+			#! Not using `@receivers[alt].kind_of?` and not putting `@receivers[alt]` on the left side
+			#   of `!=` since it may be `BasicObject` and undefined.
+			if (@type == :instance and (@modul === @receivers[alt]).!) or
+				(@type == :singleton and @modul != @receivers[alt])
+				@receivers.delete(alt)
+				throw All, [:untestable, "Receiver is not an instance of the appropriate class.", nil]
+			else
+				begin
+					if @receivers[alt].respond_to?(alt, true).!
+						@receivers.delete(alt)
+						throw All, [:untestable, "The method is unimplemented.", nil]
+					end
+				rescue NoMethodError
+					#! `BasicObject` not responding to `respond_to?`. Continue in this case.
+				end
+			end
+			begin
+if kargs.empty? #! Ruby bug
+				@returns[alt] = in_terminal{@receivers[alt].__send__(alt, *args, &pr)}
+else
+				@returns[alt] = in_terminal{@receivers[alt].__send__(alt, *args, **kargs, &pr)}
+end
+			rescue UncaughtThrowError => e
+				@throws[alt] = e
+				@receivers.delete(alt)
+			rescue Exception => e
+				@exceptions[alt] = e
+				@receivers.delete(alt)
+			end
+		end
+	ensure
+		@output = nil
+	end
+	def first_verify alt, referer, verifier, verifier_args
+		args, kargs, pr = itself_all(verifier_args)
+		if referer and @type == :constant
+			throw All, [:bad_test, "Cannot use `#{referer.upcase}` for a constant.", nil]
+		elsif referer and @receivers.key?(alt).!
+			throw All, [:untestable, "Missing a preceding successful unit test.", nil]
+		elsif verifier == :raise?
+			raise?(alt, verifier_args)
+		elsif @exceptions.key?(alt)
+			throw Alt, [:bug, @exceptions[alt], @output]
+		elsif verifier == :throw?
+			throw?(alt, verifier_args)
+		elsif @throws.key?(alt)
+			throw Alt, [:bug, @throws[alt], @output]
+		elsif verifier == :succeed?
+			@verifee = true
+		else
+			@prev_verifee = @verifee = (instance_variable_get("@#{referer || "return"}s"))[alt]
+			@last_verifier_args = [args, kargs, pr]
+			begin
+				if kargs.empty? #Ruby bug#
+						@verifee = in_terminal{@prev_verifee.__send__(verifier, *args, &pr)}
+				else
+						@verifee = in_terminal{@prev_verifee.__send__(verifier, *args, **kargs, &pr)}
+				end
+			rescue Exception => e
+				#! Unlike with `exercise`, exception is a bug here.
+				throw Alt, [:bug, e, @output]
+			end
+		end
+	end
+	def verify verifier, verifier_args
+		args, kargs, pr = itself_all(verifier_args)
+		@prev_verifee = @verifee
+		@last_verifier_args = [args, kargs, pr]
+		begin
+			if kargs.empty? #Ruby bug#
+					@verifee = in_terminal{@prev_verifee.__send__(verifier, *args, &pr)}
+			else
+					@verifee = in_terminal{@prev_verifee.__send__(verifier, *args, **kargs, &pr)}
+			end
+		rescue Exception => e
+			#! Unlike with `exercise`, exception is a bug here.
+			throw Alt, [:bug, e, @output]
+		end
+	end
+	def expr s, location, modifiers, modifiers_args
+		modifiers.zip(modifiers_args).inject(evaluate(s, *location)){|ret, a| _expr(ret, *a)}
+	end
+	def _expr ret, modifier, modifier_args
+		args, kargs, pr = itself_all(modifier_args)
+		if kargs.empty? #Ruby bug#
+				silent{ret.__send__(modifier, *args, &pr)}
+		else
+				silent{ret.__send__(modifier, *args, **kargs, &pr)}
+		end
+	end
+	def benchmark sample, feature_args
+		set_branched_binding
+		@binding = @branched_bindings.values.first
+		catch(All) do begin
+			Signal.trap("INT", &InterruptTest)
+			catch(Alt) do
+				begin
+					@receiver = sample.itself
+				rescue Exception => e
+					throw All, [:bad_test, e, nil]
+				end
+				args, kargs, pr = itself_all(feature_args) || [[], {}, nil]
+				job = ::Benchmark::IPS::Job.new(suite: false, quiet: true)
+				job.config(warmup: 0.1, time: 1)
+				Manager.context.alts.each do
+					|alt|
+#				job.item(alt, Manager::Render::Expression.new.to_s(@receiver.inspect, false, alt, args, kargs, pr))
+				#! By using `__send__`, private and protected methods can be tested as well as public ones.
+if kargs.empty? #! Ruby bug
+			job.item(alt){@receiver.__send__(alt, *args, &pr)}
+else
+			job.item(alt){@receiver.__send__(alt, *args, **kargs, &pr)}
+end
+				end
+				begin
+					job.run_warmup
+					job.run
+					throw Alt, [:success, job.full_report.entries
+					.each.with_object({}){|rp, h| h[rp.label] = {ips: rp.ips, sd: rp.stddev_percentage}}]
+				rescue NoMethodError
+					throw All, [:untestable, "The method is unimplemented.", nil]
+				rescue Exception => e
+					throw Alt, [:bug, e, nil]
+				end
+			end
+		ensure
+			Signal.trap("INT", &Manager::InterruptionInactive)
+		end end
+	ensure
+		@output = nil
+	end
+	def raise? alt, verifier_args
+		exception_class = verifier_args[0][0] || ::StandardError
+		include_subclass = verifier_args[0][1]
+		include_subclass = true if include_subclass.nil?
+		verifier = include_subclass ? :kind_of? : :instance_of?
+		kargs = verifier_args[1]
+		if @exceptions.key?(alt).!
+			throw Alt, [:bug, "Did not raise an exception.", @output]
+		elsif @exceptions[alt].send(verifier, exception_class)  and
+			(kargs.key?(:message).! or kargs[:message] === @exceptions[alt].message)
+			@verifee = true
+		else
+			throw Alt, [:bug, @exceptions[alt], @output]
+		end
+	end
+	def throw? alt, verifier_args
+		tag = verifier_args[0][0]
+		kargs = verifier_args[1]
+		if @throws.key?(alt).!
+			throw Alt, [:bug, "Did not throw.", @output]
+		elsif @throws[alt].tag == tag and
+			(kargs.key?(:value).! or kargs[:value] == @throws[alt].value)
+			@verifee = true
+		else
+			throw Alt, [:bug, "Threw tag `#{@throws[alt].tag.inspect}`"\
+			" with value `#{@throws[alt].value.inspect}`.", @output]
+		end
+	end
+	def itself_all arg_suite
+		return nil unless arg_suite
+		args, kargs, pr = arg_suite
+		#! Cannot use symbol to proc because of refinement
+		[args.map{|e| e.itself}, kargs.dup.each{|k, e| kargs[k] = e.itself}, pr.itself]
+	rescue Exception => e
+		throw All, [:bad_test, e, @output]
+	ensure
+		@output = nil
+	end
+	def syntax_check_all sample, *argument_suites
+		old, $stderr = $stderr, StringIO.new
+		catch(All) do
+			#! The result of `tainted?` is insignificant. Its only pupose is to throw `:bad_test`
+			#   when the object is a `Manager::Expr` instance that has illicit string.
+			sample.tainted?
+			argument_suites.each do
+				|argument_suite|
+				next unless argument_suite
+				args, kargs, pr = argument_suite
+				#! symbol to proc cannot be used becuase `tainted?` is a refinement for
+				#   `Manager::Expr`.
+				args.each{|obj| obj.tainted?}
+				kargs.each_value{|obj| obj.tainted?}
+			end
+			nil
+		end
+	ensure
+		$stderr, @output = old, nil
+	end
+	def evaluate exp, f = nil, l = nil; in_terminal{@binding.eval(exp, f, l)} end
+	def silent_evaluate exp, f = nil, l = nil; silent{@binding.eval(exp, f, l)} end
+	StdoutOrig, StderrOrig = $stdout, $stderr
+	Terminal = StringIO.new
+	def in_terminal
+		return yield if Manager.config(:debug)
+		$stdout = $stderr = Terminal
+		yield
+	ensure
+		@output = (Terminal.string unless Terminal.length.zero?)
+		$stdout, $stderr = StdoutOrig, StderrOrig
+		Terminal.reopen
+	end
+	def silent
+		return yield if Manager.config(:debug)
+		stdout_old = $stdout.dup
+		stderr_old = $stderr.dup
+		$stderr.reopen(IO::NULL)
+		$stdout.reopen(IO::NULL)
+		yield
+	ensure
+		$stdout.flush
+		$stderr.flush
+		$stdout.reopen(stdout_old)
+		$stderr.reopen(stderr_old)
+	end
+end

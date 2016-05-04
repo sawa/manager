@@ -1,0 +1,184 @@
+#! frozen_string_literal: false
+
+hide spec "::TestA",
+	"? Expecting “Untestable” result.",
+	"?? Expecting “unimplemented” message.",
+	BM,
+	"? Expecting “missing preceding successfule test” message.",
+	RECEIVER == 2,
+	"? Expecting “missing preceding successfule test” message.",
+	RETURN == 1,
+	"? Expecting “Bad test” result.",
+	UT,
+coda
+
+module TestA
+	spec "::TestPublicConstant",
+	coda
+
+	spec "::TestPrivateConstant",
+	coda
+
+	spec "::TestUnimplementedConstant",
+		"! Expected to be tagged as `Unimplemented`.",
+	coda
+end
+
+hide spec "::TestB",
+coda
+
+hide spec "#test_foo",
+	"?Syntax error in exercise receiver, exercise arguments, or verifier arguments should be detected and reported as “bad test”, prior to exercising or verifying the test.",
+	"??Receiver",
+	expr("efwe )def.").UT,
+	expr("efwe )def.").UT == 1,
+	"??Examining argument",
+	1.UT(expr("class <<.")),
+	1.UT(expr("class <<.")) == 1,
+	"??Verifying argument",
+	1.UT == expr("expresson}with. syntax (error"),
+	"?Test format error should be detected and result in “bad test” prior to runtime error in `expr`",
+	"??Runtime `expr` error in receiver has less priority",
+	expr("unimplemented_variable").UT,
+	"??Runtime `expr` error in examining argument has less priority",
+	1.UT(expr("unimplemented_variable")),
+	"?Exercising error such as method missing should be detected and result in “untestable” prior to runtime `expr` error in verifying argument.",
+	1.UT == expr("unimplemented_variable"),
+	"?Runtime error in `expr` should result in “bad test”, not “bug”",
+	"??Receiver",
+	expr("unimplemented_variable").UT == 1,
+	"??Exercise argument",
+	1.UT(expr("unimplemented_variable")) == 1,
+	"??Verifying argument",
+	1.UT == expr("unimplemented_variable"),
+coda
+
+hide spec "#unimplemented",
+	"! Expected to be tagged as `Unimplmenented`.",
+	"? Expect `NameError`'s during setup processing to be captured and is displayed with a modified error message.",
+	expr("unimplemented").UT == :bar,
+	:foo.UT(expr("unimplemented")) == :baz,
+	"? Unimplemented method should result in “untestable”",
+	UT{}.succeed?,
+	"? Expecting “missing previous successful” message.",
+	RETURN == "BAR",
+	RECEIVER == "BAR",
+coda
+
+hide spec "#NotConstantButMethod",
+coda
+
+hide spec "::NotConstantButMethod",
+	"! Expected to be tagged as `Unimplmenented`.",
+	"? Expecting `Untestable` (`unimplemented`).",
+	UT.succeed?,
+	"? Expecting Bad test (constant invocation cannot take an argument)",
+	UT(:foo).succeed?,
+coda
+
+hide spec "#test_nest_a",
+	"? Expecting an error. Expected to display the backtrace.",
+	UT.succeed?,
+coda
+
+hide spec "#test_nest_b",
+coda
+
+hide spec "#test_nest_c",
+coda
+
+hide spec "#test_nest_d",
+coda
+
+hide spec "#test_nest_e",
+coda
+
+hide spec "#test_nest_f",
+	"? Expecting an error. Expected to display the backtrace.",
+	UT.succeed?,
+coda
+
+hide spec "#test_nest_g",
+coda
+
+hide spec "#test_nest_h",
+coda
+
+hide spec "#test_nest_i",
+coda
+
+hide spec "#test_throw",
+	"? Expecting Success.",
+	UT.throw?(:yes),
+	"? Expecting Bug.",
+	UT.throw?(:no),
+	"? Expecting Success.",
+	UT.throw?(:yes, value: "correct"),
+	"? Expecting Bug.",
+	UT.throw?(:yes, value: "wrong"),
+	"? Uncaught throw should be reported as Bug.",
+	UT == true,
+coda
+
+hide spec "#test_or",
+	<<~RUBY.setup,
+		require 'set'
+		a = (1..1000).to_a
+		b = [2,6,7,1]
+	RUBY
+	"? Expected that alternative error messages are reported independently.",
+	UT(expr("a"), expr("b")) == expr("[*3..5, *8..1000]"),
+	BM(expr("a"), expr("b")),
+coda
+
+hide spec "#test_or_without_main",
+	"! Expected to be tagged as `Unimplemented`. The main method is not implemented.",
+	"? Expects tests to be run in absense of main method, and independently report a bug for an alternative implementation.",
+	UT(expr("a"), expr("b")) == expr("[*3..5, *8..1000]"),
+	"? Expects benchmark to be run in absense of main method.",
+	BM(expr("a"), expr("b")),
+coda
+
+hide spec "#check_int",
+	<<~'RUBY'.setup,
+		int = "220000"
+		bad_int = "22.to.2"
+	RUBY
+	UT(expr("int")) == true,
+	BM(expr("int")),
+	BM(expr("bad_int")),
+coda
+
+class String
+	hide spec "#upcase",
+		"? Expecting Untestable (no previous successful unit test).",
+		RECEIVER > 5,
+		"? Expecting Bad test (no verification).",
+		"bar".UT{},
+		"? Expecting Untestable (no previous successful unit test).",
+		RETURN == "BAR",
+		RECEIVER == "BAR",
+		"? Expecting Success",
+		"bar".UT{}.succeed?,
+		RETURN == "BAR",
+		"? Expecting Bug",
+		RECEIVER == "BAR",
+		("bzz".UT == "Zoo") <= "Goo",
+		"abcde".BM,
+	coda
+end
+
+hide spec "::Array",
+coda
+
+class Array
+	hide spec "#[]=",
+		UT == 3,
+		"? `expr` objects' identity should be preserved with `RECEIVER` and `RETURN`",
+		expr('Array[*(0..99).to_a]').UT(10, 10, 0).zero?,
+		RECEIVER == expr('Array[*(0..9).to_a] + Array[0] + Array[*(20..99).to_a]'),
+		"? `expr` used in argument position should be displayed as the source string, not as the expanded value.",
+		'a = Array[1, 2, 3]'.setup,
+		expr('a').UT(1, 0, expr('a')).succeed?,
+	coda
+end

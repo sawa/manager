@@ -1,0 +1,1289 @@
+#! frozen_string_literal: false
+
+spec "=License",
+	"The MIT License (MIT)",
+	"Copyright (c) 2014–2016 sawa",
+	"Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the “Software”), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:",
+	"The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.",
+	"THE SOFTWARE IS PROVIDED “AS IS”, WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.",
+coda
+
+spec "=Overview",
+	"Manager generates a user's manual and a developer's chart simultaneously from a single spec file that contains both kinds of information. More precisely, it is a document generator, annotation extractor, program code analyzer, unit test framework, benchmark measure, all in one.",
+	"Manager combines software documentation and software test in a single process. The leading idea is that documentation and test should be closely related to each other and be separated from program coding process in order to put Documentation Driven Development (DDD) and Test Driven Development (TDD) into practice. Documentation and tests describe a piece of software from the designing side whereas the program code describes it from the implementation side. Manager allows a programmer to describe the software from each perspective in a separate file.",
+	"Separating documentation and tests on the one hand and the program code on the other is beneficial to both. Majority of conventional documentation generation tools require documentation to interleave with the program code within the same file, and in order to avoid affecting the program code, documentation is embedded within comments, and is written in a markup language especially designed for the documentation generator. This requires the developer to learn additional syntax. Also with most text editors, documentation embedded inside a comment cannot be highlighted for the markup language, making it difficult for the programmer to write or read. Writing or reading the program code is also disrupted by the noise of documentation. In contrast, Manager requires documentation to be written in a separate file from the program code and in the Ruby language. With the files separated, both the documentation and the program code are kept clean.",
+	"An often heard argumentation against separating documentation from the program code is that it would easily break synchronization of the two as a programmer may update one without updating the other (either forgetting to do so or by laziness), and that having both written in the same file alongside each other would lower the mental barrier against updating both at the same time. Manager features functionality to warn the developer about discrepancies between the documentation and the program code, motivating the developer to fix them.",
+	"Regarding tests, a major advantage of Manager as opposed to most conventional Ruby test frameworks is that Manager does not use matchers: methods especially designed for unit testing. Using Manager, unit tests and benchmarks are written naturally as if one were writing conditional expressions in Ruby code.",
+	"Tests in Manager also uses placeholder methods for a constant or a method that is the object of the test. This enforces tests to follow the proper format; each unit testing expression would be forced to have a receiver that belongs to an appropriate class, and the examined feature will be called once automatically, whose result will be verified once per unit testing expression. There is no way to test a constant or a method other than what is supposed to be tested where the test is written. Any testing expressions that do not follow the format will be reported as failure. It is highly unlikely for an inappropriately written unit test to succeed by accident (if it does, it is Manager's bug).",
+coda
+
+spec "==Simple Example",
+	"Suppose we have the following problem:",
+	"> Write an instance method `same_counts` on `Array` that takes another array as an argument, and returns `true` if `self` and the other array have the composition of elements (i.e. counts of all elements are the same) and otherwise returns `false`.",
+	"Let us start by writing a test. Create a new file named `test.rb`, and write the following line at the top:",
+	<<~'RUBY'.code,
+		# frozen_string_literal: false
+	RUBY
+	"Under it, we shall describe a specification for the instance method `same_counts` on `Array`. We write the following:",
+	<<~'RUBY'.code,
+		class Array
+			spec "#same_counts",
+			coda
+		end
+	RUBY
+	"Now we are ready to fill in some unit tests inside the `spec` ... `coda`. The first test may be a trivial case:",
+	<<~'RUBY'.code,
+		["a", "b", "b", "c", "c", "c"].UT(["a", "b", "b", "c", "c", "c"]) == true,
+	RUBY
+	"Here, `UT` is a placeholder for the object of the test (`same_counts`), and the whole expression describes what we expect to be evaluated to be a truthy value. Don't forget the comma at the end. Next, we might want to add an example with a shuffled argument:",
+	<<~'RUBY'.code,
+		["a", "b", "b", "c", "c", "c"].UT(["c", "b", "c", "b", "c", "a"]) == true,
+	RUBY
+	"To make sure that not only the inventory of the elements but also the number of them matters, we can a test like this:",
+	<<~'RUBY'.code,
+		["a", "b", "c"].UT(["a", "b", "b", "c", "c", "c"]) == false,
+	RUBY
+	"Now, the file `test.rb` should look like:",
+	<<~'RUBY'.code,
+		# frozen_string_literal: false
+
+		class Array
+			spec "#same_counts",
+				["a", "b", "b", "c", "c", "c"].UT(["a", "b", "b", "c", "c", "c"]) == true,
+				["a", "b", "b", "c", "c", "c"].UT(["c", "b", "c", "b", "c", "a"]) == true,
+				["a", "b", "c"].UT(["a", "b", "b", "c", "c", "c"]) == false,
+			coda
+		end
+	RUBY
+	"Let us run this on Manager. On the command line, move to the directory we wrote the `test.rb` file, and type:",
+	<<~'BASH'.code(:bash),
+		manager test.rb
+	BASH
+	"Two files named `MANUAL.html` and `CHART.html` should have been generated in the directory. Open `CHART.html` with a web browser. It should have a section that looks like this:",
+	image("Simple example step 1", "spec/tutorial_1.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"From this, we can read that we wrote a specification for an instance method `same_counts` in the `Array` class. It is tagged as “Unimplemented” because we have not defined the method yet. It has three tests, all of which are shown with a numbered colored bullet and with a message saying that the method is not implemented.",
+	"Let us go on and implement the method. The simplest way is to write it in the same file we are working on. At the bottom of what we have, write a line:",
+	<<~'RUBY'.code,
+		__END__
+	RUBY
+	"This will be the border between the specification code and the program code that we are about to write. Under this line, let us add an implementation of the method. The file `test.rb` should now look like this:",
+	<<~'RUBY'.code,
+		# frozen_string_literal: false
+
+		class Array
+			spec "#same_counts",
+				["a", "b", "b", "c", "c", "c"].UT(["a", "b", "b", "c", "c", "c"]) == true,
+				["a", "b", "b", "c", "c", "c"].UT(["c", "b", "c", "b", "c", "a"]) == true,
+				["a", "b", "c"].UT(["a", "b", "b", "c", "c", "c"]) == false,
+			coda
+		end
+
+		__END__
+
+		class Array
+			def same_counts other
+				sort == other.sort
+			end
+		end
+	RUBY
+	"After we run the same command from the terminal, a portion of `CHART.html` should have now changed to this:",
+	image("Simple example step 2", "spec/tutorial_2.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"The “Unimplemented” tag is gone, and the method is shown with a bullet that it is defined in `test.rb:14`. The three tests have succeeded.",
+	"Suppose we came up with another implementation of this method. If we name it with a prefix `same_counts__`, then it will be automatically recognized by Manager as an alternative implementation of the method `same_counts`. The program code can now look like:",
+	<<~'RUBY'.code,
+		class Array
+			def same_counts other
+				sort == other.sort
+			end
+			def same_counts__using_hash other
+				inject(Hash.new(0)){|h, e| h[e] += 1} == other.inject(Hash.new(0)){|h, e| h[e] += 1}
+			end
+		end
+	RUBY
+	"Let us run the command again, and see what happened.",
+	image("Simple example step 3", "spec/tutorial_3.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"Oops, it looks like I forgot to add the memo object in the block of the definition. We can tell this from the backtrace displayed in the report. Let us fix this, and also implement another version:",
+	<<~'RUBY'.code,
+		class Array
+			def same_counts other
+				sort == other.sort
+			end
+			def same_counts__using_hash other
+				inject(Hash.new(0)){|h, e| h[e] += 1; h} == other.inject(Hash.new(0)){|h, e| h[e] += 1; h}
+			end
+			def same_counts__using_group_by other
+				group_by(&:itself) == other.group_by(&:itself)
+			end
+		end
+	RUBY
+	"And then we run Manager again:",
+	image("Simple example step 4", "spec/tutorial_4.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"All three implementations have passed the tests given. Now, we might be interested in comparing the performance of these three implementations. That is done by using the benchmark method `BM`. Using the same objects that we used for the unit tests, We should add some lines to the spec portion of the code to make it look like:",
+	<<~'RUBY'.code,
+		class Array
+			spec "#same_counts",
+				["a", "b", "b", "c", "c", "c"].UT(["a", "b", "b", "c", "c", "c"]) == true,
+				["a", "b", "b", "c", "c", "c"].UT(["c", "b", "c", "b", "c", "a"]) == true,
+				["a", "b", "c"].UT(["a", "b", "b", "c", "c", "c"]) == false,
+				["a", "b", "b", "c", "c", "c"].BM(["a", "b", "b", "c", "c", "c"]),
+				["a", "b", "b", "c", "c", "c"].BM(["c", "b", "c", "b", "c", "a"]),
+				["a", "b", "c"].BM(["a", "b", "b", "c", "c", "c"]),
+			coda
+		end
+	RUBY
+	"Running Manger will take more time because of the benchmark tests performed. Now we see benchmark reports under the unit test reports:",
+	image("Simple example step 5", "spec/tutorial_5.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"In all test cases, it looks like the first implementation `same_counts` is the most efficient. If this were production code, we might want to decide to use this implementation.",
+	"So far, we have been ignoring the tag “Missing Doc” with a message. We have been looking at `CHART.html`, which should be used by the developer of the program, but opening the other file `MANUAL.html`,",
+	image("Simple example step 6", "spec/tutorial_6.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"we see that its content is nearly blank. This file is a manual for the users of the program. The message in `CHART.html` was warning that the this part of `MANUAL.html` does not have any descriptive content. Manager encourages a developer to properly do testing as well as documentation. When something is missing, it alerts the developer with such tags. So we can add a description to the spec portion:",
+	<<~'RUBY'.code,
+		class Array
+			spec "#same_counts",
+				"Takes another array, and compares it with `self` whether the counts of all
+				  elements are the same.",
+				["a", "b", "b", "c", "c", "c"].UT(["a", "b", "b", "c", "c", "c"]) == true,
+				["a", "b", "b", "c", "c", "c"].UT(["c", "b", "c", "b", "c", "a"]) == true,
+				...
+			coda
+		end
+	RUBY
+	"The description then appears in `CHART.html` as well as in `MANUAL.html`, but we now have a different tag alerting that no method signature is given:",
+	image("Simple example step 7", "spec/tutorial_7.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"A method signature is expressed as a hash. We should add a hash like this before the description we have just added:",
+	<<~'RUBY'.code,
+			spec "#same_counts",
+				{"(other)" => value(true) | value(false)},
+				"Takes another array, and compares it with `self` whether the counts of all
+				  elements are the same.",
+			...
+	RUBY
+	"After running Manager, we can see that the warning is gone from `CHART.html`, and for `MANUAL.html`, by clicking the header “Array#same_counts”, we can see that we now have documentation for the user:",
+	image("Simple example step 8", "spec/tutorial_8.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"For more examples, please see the spec files of the following gems: manager, dom, pretty_debug, compact_time, and the spec files under the directory `manager/examples`.",
+coda
+
+spec "==Release Notes",
+	"Manager follows semantic versioning, i.e., the first number section of a version (major)  corresponds to backwards incompatible API changes, the second number (minor) describes backwards compatible API changes, such as new functionality/features, and the third number (teeny) describes implementation level detail changes, such as small bug fixes.",
+	"* 0.0.0",
+	"** Initial release.",
+coda
+
+spec "=Viewing The Files",
+	"Manager generates two HTML format files: a *user's manual* and a *developer's chart*. They are to be viewed on a web browser.",
+coda
+
+spec "==User's Manual",
+	"User's manual includes *documentation* about described or implemented modules and features. It is intended to be read by the users of the software.",
+coda
+
+spec "===Main Information",
+	"The *main information* is displayed in three levels:",
+	"* *Modules* (including classes)",
+	"* *Features* (i.e., constants, singleton methods, instance methods, see {=Feature}) and *section headers* (see {=Section Header})",
+	"* *Items* (contents)", 
+	"Features described in the spec as well as features implemented within the listed files (see {=Reference to Program Code}) will be displayed by modules. Features in the spec file will be placed first and in the order they are described in the spec. However, if the module bodies of a single module (which include feature descriptions) are scattered across multiple locations in the spec file, then they are merged together in the first location. Features implemented but not described in the spec will follow the  described ones within their owner modules. They will be described with their original name in case of an alias method.",
+	"Modules, features, and description sections are clickable unless their content is empty. Each one toggles elements that are more detailed than itself between hidden/displayed states. Each feature has a *visibility* tag (valued “*Unimplemented*”, “*protected*”, “*private*”, or “*public*”) and a numbered *type* tag (distinguished by “*Constant*”, “*Singleton method*”, or “*Instance method*”) except for constants that are modules.",
+	"Modules (including classes) within the name space of a module other than `Object` are only displayed under the (constant) feature section with a link to where they are displayed as an independent module section. The `Object` class is displayed only if it has a feature described in the spec file or if a non-module feature of `Object` is implemented in the program code.",
+coda
+
+spec "===Top Bar",
+	"At the top of the user's manual is the *top bar*, which has buttons and information to help users navigate through the file.",
+	"* “Modules”, “Features”, and “Full” buttons: Reset the level of detail to be displayed. “Module” button only displays the module names. “Feature” button displays up to the inventory of features as well as the headers of description sections. “Full” button displays to the full detail. Features and items can be further hidden/displayed independently or in groups by other buttons, as to be explained below; the three buttons are only responsible for the level of detail right after they are clicked.",
+	"* Visibility buttons: Each button toggles between showing/hiding states of the features with the corresponding visibility. The digits beside each button represent the number of features with the visibility, and remain constant even if any of them become hidden. Buttons with numbers are omitted if the number of features is zero.",
+	"* Type buttons: Each button toggles between showing/hiding states of the features of the corresponding type. The digits beside each button represent the number of features of the type, and remain constant even if any of them become hidden. Buttons with numbers are omitted if the number of features is zero.",
+	"The *left/right arrows* on the right of a group of buttons allow navigation through features. The numerator on the right side describes the position that was last navigated using the arrow buttons (or “1” by default). If the last navigation was done using the associated arrow buttons, then the number is displayed with emphasis. The denominator describes the number of displayed (i.e. not hidden) features. The number following the plus sign tells the user how many features they are implicitly skipping during navigation; it indicates the number of features hidden for reasons other than any property in the group being hidden. For example, the following situation:",
+	image("Navigation", "spec/navigation.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"shows that the arrow keys next to the “Unimplemented”/“protected”/“private”/“public” group were the ones last clicked for navigation, and that the current scroll position points to the third feature among the 140 visible ones (features that are not private and not constant) unless the user has further scrolled without using any navigation buttons. As the sum of 11 (Unimplemented), 10 (protected), and 126 (public) is 147, 147 features would be expected to be displayed if nothing but private features were hidden. However, the features are hidden not only because they are private. Since constants are hidden, Unimplemented/protected/public features that are constants are hidden. The number seven after the plus sign in the first group indicates this amount. Similarly, 58 is the number of singleton/instance methods hidden because they are private.",
+coda
+
+spec "==Developer's Chart",
+	"The contents of the developer's chart is a superset of that of the user's manual. It includes annotations, test reports, and warnings. It is intended to be utilized by the developers of the software.",
+coda
+
+spec "===Left Panel",
+	"“Gem Spec” displays information given in a gem spec file if the object of Manager is a gem, and a {<<::#gemspec} command is called in the spec (see below, {=Reference to Program Code}).",
+	"The *base directory* is the directory in which the spec file resides. Throughout Manager, file names are displayed either as a path relative to the base directory or as an absolute path, whichever is shorter.",
+	"The “Files” table lists information about the relevant files.",
+	"* “Category”: Files are classified into the following.",
+	"** “Depended”: Pieces of software that are loaded during Manager run, but are neither the subject nor the object of documentation or test. In particular, the Ruby implementation that is used to run Manager, and any gems that are loaded.",
+	"** “Specification”: The subject of description/tests. Also called *spec* in this manual/chart.",
+	"** “Program”: Files that are the object of analysis/tests. They are described with the percentage of the number of lines covered in tests against the number of all lines in the file.",
+#	"* “Listed”: (**Not implemented yet**) The checkbox toggles the file's *listed* status, i.e. whether they are hidden or displayed in backtraces of test reports.",
+	"* “Version”: Version is described by the version number for depended files and by the last modified time for specification and program code files. Among the last modified times, the latest one is displayed with emphasis. This may give a hint on which file has mainly undergone modification right before the Manager was run, so that the developer can focus on reading the relevant contents.",
+coda
+
+spec "===Main Information",
+	"Features in the developer's chart, unlike those in the user's manual, may be tagged by one of the followings that describe *documentation status*. They are exclusive (i.e. no feature may be tagged by more than one of them), and are not complementary (i.e. a feature may be tagged by none of them). Among them, “Undocumented” and “Misplaced” are warnings, and “hidden” or “moved” indicate markings in the spec file (see {=Feature}).",
+	"* “Undocumented”: The feature is implemented in the program code, but is not described in the spec file.",
+	"* “hidden”: The feature is marked in the spec file as to be hidden in the user's manual. This is intended to be used for features that are internal implementations, and are not meant to be public API.",
+	"* “Misplaced”: The feature is under one or more of the following three occasions. This tag is suppressed when the feature is marked as “moved”.",
+	"** The feature (method) is implemented within a file that is not listed (see {=Reference to Program Code} on how to list a feature).",
+	"** The feature is implemented on an ancestor module rather than in the module in which it is described in the spec file.",
+	"** The feature (method) is described in the spec file, but is implemented as an alias of another method.",
+	"* “moved”: The feature is marked as to be described in a manner different from its implementation. Suppresses “Misplaced” tag.",
+coda
+
+spec "====Module Diagrams",
+	"Each module section has two *module diagrams*. For example, the following may appear under the section of a class `B`:",
+	image("Module diagrams", "spec/module_diagram.png", border: "1px solid hsl(0, 0%, 80%)"),
+	"The first diagram represents mixins and ancestors related to `B` itself, and the second one is for its singleton class `<<B`. Each bordered area includes exactly one class and zero or more modules it has mixin relations with. The classes are vertically aligned at the same height. A mixin relation is expressed with the character `\u250a`; modules located below the class are the prepended ones, those located above are the included modules. They are ordered so that a lower module/class has priority over a higher one in method call. Thus, the diagram tells that module `C` was prepended to class `B`, and module `D` was included into `B`, after which module `E` was included into `B`. The bordered areas are related with the character `<`, which expresses a minimum subclass relation between the respective classes in the bordered areas. The diagram tells that class `B` has class `A` as its parent. Note that the entire method search path (priority) can be followed by going from the bottom to top, left to right: `C` \u2192 `B` \u2192 `E` \u2192 `D` \u2192 `A` \u2192 `Object` \u2192 `Kernel` \u2192 `BasicObject`. Links are available for navigation to the module sections that are displayed.",
+coda
+
+spec "====Alternative Implementations",
+	"The developer's chart displays information about *alternative implementations*. This functionality is intended to help developers test and compare different implementations of a feature by following a convention. Singleton or instance methods implemented in the program code and whose name includes exactly one occurrence of the sequence `__` will be considered alternative implementations of the *main implementation*, whose name corresponds to the sequence preceding `__`. The (possibly empty) sequence following `__` is intended to be used as a label for distinguishing each alternative; perhaps a serial number, a few-word summary of the implementation detail, the developer's name, or implementation date can be used. For example, the following methods are all considered alternatives of the main implementation `foo`:",
+	<<~'RUBY'.code,
+		foo__
+		foo__1
+		foo__2
+		foo__map
+		foo__without_map
+		foo__mary
+		foo__john
+		foo__20151201
+		foo__20160101
+	RUBY
+	"To avoid conflict or confusion with (mostly Ruby core) methods or keywords with balanced `__` (such as `__FILE__` or `__send__`), a method that has more than one `__` (such as `foo__map__1`) is not considered an alternative implementation.",
+	"Alternative (as well as main) implementations are detected and displayed together after bullets with the title “Implementation candidates” under the feature named for the main implementation. As such, an alternative implementation cannot be described in the spec file as an independent feature. It is possible that alternatives are implemented without the main one being implemented. In such case, the feature header will have the visibility “unimplemented”. Each alternative will have the visibility described within parentheses if the value differs from the main implementation. In this example,",
+	image("Alternatives with unimplemented main", "spec/alternatives_unimplemented.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"instance methods `A#foo__1` and `A#foo__2` are implemented in the ;program code as private and public methods respectively, but the corresponding main method `A#foo` is not implemented. So the feature header has a tag “unimplemented”. In this example,",
+	image("Alternatives with implemented main", "spec/alternatives_implemented.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"three instance methods `A#bar`, `A#bar__1`, and `A#bar__2` are implemented in the program code. The “public” tag indicates that the main implementation `A#bar` is public. `A#bar__1` is implemented as a protected method, and the absence of visibility description for `A#bar__2` indicates that it is the same as the main implementation, i.e. public.",
+	"In order for alternative implementations to pursue their purpose, their visibility should match that of the main implementation (if implemented). Thus, visibility description in parentheses is indication that the implementation is wrong; the description is intended to work as a warning to the developer.",
+	"On the right side, the source location (i.e. file name and line number) of each implementation is described if it is detectable.",
+	"In one use of this functionality, a main method has already been implemented in a program code file, and the developer wants to test its alternative implementations that appeared afterwards. In such case, it may be better to implement the alternatives in a file different from the main program file or in the scratch code (see {=Reference to Program Code}) in order not to mess the original code file.",
+coda
+
+spec "====Documentation Reports",
+	"Items in the developer's chart is marked with various *warnings*. Appropriate fix should be made when a warning is displayed.",
+	"* “Missing”: There are items that a feature described in the spec file should minimally have. If any of the following (see {=Spec File}) is missing in a feature documented in the spec file, this tag is displayed. These warnings are suppressed when the feature is marked as “hidden” or “moved”.",
+	"** The feature does not include any unit test.",
+	"** The feature does not have any paragraph for the user.",
+	"** The feature (method) has no description about its method signature.",
+	"* Spell errors are shown in distinct type faces (If `spell_check` option is on, see {=Spell Check (spell_check, spell-check-list, spell-check-filter, case_sensitive, case_insensitive)}).",
+	"* Bad links (see {=Link}) within annotation, test description, list item, citation, or paragraph are shown in distinct type faces. This is also shown in user's manual.",
+coda
+
+spec "=====Annotations and Editorial Markings",
+	"Whereas documentation describes the Application Programming Interface (API), it is sometimes helpful to have information on the implementation level details of the software. Manager detects *annotations* in the spec file and the program code. It also detects comments in the program code that follow a certain format (traces of temporal edits) and regards them as *editorial markings*. While documentation should appear in the user's manual, annotations and editorial markings should be hidden from the users and only be displayed in the developer's chart.",
+	"Among annotations and editorial markings, there are two types:",
+	"* *Agenda*: Those that should be kept temporarily and should be aimed to be resolved after some time, such as markings on incomplete or buggy parts of the program code, or commented out parts that are undergoing changes by the developers",
+	"* *Log*: Those that should be kept permanently or for a relatively long time for future reference, such as remarks on the reason a certain algorithm was chosen in the implementation, or the intent of a certain routine",
+	"Different annotations written in the spec file or the program code may be *related* by a *tag* (see {=Annotation}). For example, a single remark may be made for multiple locations in a program code file, and one may not want to repeat writing the same annotation in each location. Or one may want to annotate something in the spec file about a certain portion of the program code at some location. An annotation tag either has a *file scope* or a *method-body scope*, and annotations with the same tag within the same scope consist a *set* of related annotations and are displayed as one; their contents are joined with a space character, the file names and line numbers are compacted, and the line numbers where the content is taken from are emphasized. A tag is displayed after the locations. Similarly, same types of editorial markings are related per file, and are displayed chart together. Annotations with a file scope are displayed in the main context.",
+	"An assumption made about the development cycle is that annotations can be first written in isolation and free style as temporal annotation (i.e. agenda). Then, as it turns out to be organized information that should be recorded (i.e. log), they should be tagged, and the content should be moved into the spec file, with a tag relating the original location in the program code and the corresponding annotation in the spec file. Based on this, annotations and editorial markings are categorized as agenda or log by the following rule:",
+	"* Un-tagged annotations are log.",
+	"* Tagged annotations are agenda.",
+	"* Editorial markings are agenda.",
+coda
+
+spec "====Test Reports",
+	"A feature can have *tests* (unit tests or benchmarks). A unit test is run against each alternative implementation of the feature. A benchmark is run together for the alternative implementations of the feature. Each test results in one of the following in the order of priority given below (for terminology and {::#expr}, see {=Testing}):",
+	"# If the string argument of `expr` cannot be parsed as Ruby code, then the result is “Bad test”.",
+	"# If the string argument of `expr` within the exercise receiver or arguments of a test cannot be evaluated in the given context, then the result is “Bad test”.",
+	"# If the exercise receiver of a test is not an instance (of a subclass) of the module that the feature is described under, then the result is “Untestable”.",
+	"# If the feature to be tested is not defined on the exercise receiver, then the result is “Untestable” (if there is an alternative implementation, then the feature is regarded as defined with respect to the test even if the main implementation is not defined).",
+	"# If calling the feature on the exercise receiver and arguments raises an error, then the result is “Bug”.",
+	"# If the string argument of `expr` within the verifying arguments of a test cannot be evaluated in the given context, then the result is “Bad test”.",
+	"# If a unit test contingent on another one is not preceded by a successfully exercised unit test, then the result is “Untestable”.",
+	"# If calling the tested feature on the exercise result and the verifying arguments raises an unexpected error, then the result is “Bug”.",
+	"# If the test is a unit test, and the verification result is falsy, then the result “Bug”.",
+	"# The result is “Success”.",
+	"Tests are reported per feature in the following way:",
+	"* If a test results in “Bad test” or “Untestable” (for an implementation of the feature), then its report for the entire feature will be as such (“Bad test” or “Untestable”), with a common message.",
+	"* If a test results in “Bug” for any implementation of the feature, then its report for the entire feature will be “Bug”. If the test is a unit test, a message is shown under a bullet for each implementation that resulted in “Bug”. If it is a benchmark, a message is shown only for the first implementation that resulted in “Bug”.",
+	"* If a test results in “Success” for all implementations of the feature, then “Success” is displayed if it is a unit test, or a graph is shown if it is a benchmark.",
+coda
+
+spec "===Top Bar",
+	"The top bar in developer's chart is a superset of that of the user's manual. The numbers displayed aside visibility buttons and type buttons may be greater than the corresponding number displayed in the user's manual. This is due to some features being marked as “hidden” (see {=Feature}). In addition to the functionality in the user's manual, the top bar has the following.",
+	"* “User Items” button: Toggles *user items*, i.e. items that are primarily for the user's manual. Relevant items are in distinct background color when displayed.",
+	"* Documentation status buttons (“Undocumented”, “Hidden”, “Misplaced”, “Moved”), documentation report buttons (“Missing doc”, “Bad doc”, “Agenda”, “Log”), and test report buttons (“Missing test”, “Bad test”, “Untestable”, “Bug”, “Success”, “Benchmark”): They work similarly to visibility buttons and type buttons.",
+coda
+
+spec "=Running Manager",
+	"Manager can either be run as a command on the terminal, or be called within a Ruby code.",
+	"* To run Manager on the terminal, execute the command `manager` with the path to the spec file as an argument. To skip a time-consuming test, type Ctrl+C during the test.",
+	<<~'BASH'.code(:bash),
+		$ manager some_directory/spec_file
+	BASH
+	"* To run Manager within in a Ruby code, execute the method {Manager.new} with the path to the spec file as an argument.",
+	<<~'RUBY'.code,
+		Manager.new("some_directory/spec_file")
+	RUBY
+coda
+
+spec "==Customization and Options",
+	"Customization is done either through a command line option using a double hyphen `--` before a key, possibly followed by the value, or through the {Manager.config} method in the spec file with a symbol key and a value. The options in this section are given for `Manager.config`. To use them in the command line, read underscores `_` in them as hyphens `-`. Multiple options can be specified with a single command/method. When an option is specified in both ways, the command line option overrides the `config` method.",
+coda
+
+spec "===Spell Check (spell_check, spell-check-list, spell-check-filter, case_sensitive, case_insensitive)",
+	"Spell checking is available if the `ffi-aspell` gem and the relevant natural language component are installed. The inventory of available languages is shown in the command line by the `--spell-check-list` option:",
+	<<~'BASH'.code(:bash),
+		$ manager --spell-check-list
+	BASH
+	"The `spell_check` option sets the language to be used for spell checking the text. When set to `nil`, spell check is turned off. The default is `nil`.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --spell-check en
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config spell_check: "en"
+	RUBY
+	"To check which words among a short list are not in the dictionary, run in the command line with the `spell-check-filter` option followed by the dictionary and the words to check.",
+	<<~'RUBY'.code(:bash),
+		$ manager --spell-check-filter en prefix prepend affix append
+		The following words are not in the dictionary `en`:
+		prepend
+	RUBY
+	"To exempt words that are not listed in the dictionary from spell errors, list them in an array and pass them with `case_sensitive` and `case_insensitive` options respectively, depending on whether the case matters.",
+	<<~'RUBY'.code,
+		Manager.config case_sensitive: %w[
+			API
+			CSS
+			...
+		]
+		Manager.config case_insensitive: %w[
+			falsy
+			matchers
+			...
+		]
+	RUBY
+coda
+
+=begin
+spec "===Timeout (timeout)",
+	"This option sets the maximum time allowed for a unit test or benchmark to run. Anything that exceeds this amount will be terminated."
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --timeout 1
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config timeout: 1
+	RUBY
+coda
+=end
+
+spec "===Output Directory (odir)",
+	"The output directory is by default the directory of the spec file. To override this, use the `odir` option. Relative path can be used. In such case, it will be expanded relative to the directory of the spec file.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --odir ../documents
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config odir: "../documents"
+	RUBY
+coda
+
+spec "===User's Manual File Name (user)",
+	"The user's manual is written as the file name `MANUAL.html` by default. To override this, use the `user` option.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --user README.html
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config user: "README.html"
+	RUBY
+coda
+
+spec "===Developer's Chart File Name (dev)",
+	"The developer's chart is written as the file name `CHART.html` by default. To override this, use the `dev` option.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --dev result.html
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config dev: "result.html"
+	RUBY
+coda
+
+spec "===Title (title)",
+	"A certain string is used as part of the title to describe what the user's manual and developer's chart are about. By default, the directory name of the spec file is used in hope that in many cases, that should describe the software's project name. To override this, use the `title` option.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --title Foo\ Software
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config title: "Foo Software"
+	RUBY
+coda
+
+spec "===Base Directory (bdir)",
+	"The base directory is the reference point for describing relative file names in the output. It does not affect `require`/`load` commands or the like. By default, it is the directory of the spec file. To override this, use the `bdir` option. Relative path can be used. In such case, it will be expanded relative to the directory of the spec file.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --bdir ../lib
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config bdir: "../lib"
+	RUBY
+coda
+
+spec "===Theme (theme, theme-list)",
+	"The design of the output files are controlled by a theme. New themes are occasionally added to Manager gem within version updates. Each theme is described as a CSS format file, and is named after a four digit number describing the publishing year, followed by a letter (starting from `a` and incremented) to distinguish multiple designs in a single year, followed by the `.css` extension. In addition, another CSS format file describes the part of the design related to syntax highlighting of the code blocks (see {=Syntax Highlighting (highlight, highlight-list)}). These files are incorporated as part of the output HTML files. The inventory of available theme files and highlight files can be accessed from the command line by the `theme-list` option.",
+	<<~'BASH'.code(:bash),
+		$ manager --theme-list
+	BASH
+	"The default theme is selected among the newest ones included at the time of shipping of a version of Manager. To select a theme, use the `theme` option with the theme file name.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --theme 2016a.css
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config dev: "2016a.css"
+	RUBY
+	"To add a custom theme, describe the design in CSS format, and place the file within the directory `manager/theme`. Designs for user's manual and developer's chart can be written independently by placing the CSS selector under the id selectors `#user` and `#dev`, respectively. Otherwise, the design is common to both.",
+	"* Common design",
+	<<~'CSS'.code(:css),
+		#main{
+			padding-top: 20;
+			padding-bottom: 20;
+		}
+	CSS
+	"* Only for user's manual",
+	<<~'CSS'.code(:css),
+		#user #main{
+			padding-right: 240;
+			padding-left: 240;
+		}
+	CSS
+	"* Only for developer's chart",
+	<<~'CSS'.code(:css),
+		#dev #main{
+			padding-right: 40;
+			padding-left: 20;
+		}
+	CSS
+	"If there is a comment `/* ... */` that starts and ends within the first line of a theme file, then its content (with spaces at the edges stripped) will be displayed in brackets alongside the file name in response to the `theme-list` option.",
+	"* Theme file",
+	<<~'CSS'.code(:css),
+		/* Author: sawa. The default design */
+		...
+	CSS
+	"* Showing the inventory",
+	<<~'BASH'.code(:bash),
+		$ manager --theme-list
+		2016a.css [Author: sawa. The default design]
+		...
+	BASH
+coda
+
+spec "===Syntax Highlighting (highlight, highlight-list)",
+	"To select a design for syntax highlighting of code blocks, use the `highlight` option with the highlight file name.",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --highlight coderay_github.css
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config highlight: "coderay_github.css"
+	RUBY
+	"To add a highlight design, place the file within the directory `manager/theme`.",
+	"To obtain the list of symbols for the languages that can be highlighted, use the `highlight-list` option (see {=Code Block} for its usage).",
+	<<~'RUBY'.code(:bash),
+		$ manager --highlight-list
+	RUBY
+coda
+
+spec "===Debugging of Manager (debug)",
+	"This is not intended for normal use. When the `debug` option takes the `true` value as follows,",
+	<<~'BASH'.code(:bash),
+		$ manager some-directory/spec-file --debug true
+	BASH
+	"or",
+	<<~'RUBY'.code,
+		Manager.config debug: true
+	RUBY
+	"it has the following effects:",
+	"# Errors raised by running a spec file and reported on the command line will have backtraces including files internal to Manager. By default, such detailed outputs are suppressed.",
+	"# Outputs to standard output and standard error due to running tests are displayed on the command line. By default, they are redirected and are displayed in the output section of test reports.",
+	"# Files internal to Manager are displayed in backtraces in test reports when an error or a bug is detected. By default, they are excluded.",
+coda
+
+spec "=Spec File",
+	"Documentation and Tests are written in a spec file. When the spec file contains some higher level errors, they will be reported in the developer's chart in the manner mentioned in {=Documentation Reports}, but when there is a syntax error or some low level error, Manager will terminate with an error message without generating any file. In order to feed back the source location of a string in case of an error, Manager stores some objects taken from the spec file with the source location. Particularly, it is important to set the strings in the spec file to be mutable in order for Manager to fully function. Especially under future Ruby 3.0, where strings are frozen by default, it is necessary to ensure this by placing a frozen string pragma with the `false` value at the beginning of the spec file:",
+	<<~'RUBY'.code,
+		# frozen_string_literal: false
+	RUBY
+	"Specification can be divided in multiple files as long as there is a single main spec file whose name is directly passed as an argument to the `manager` command or {Manager.new} method, which loads the other spec files.",
+coda
+
+spec "==Reference to Program Code",
+	"Program code can be written in files different from the spec file or in the same file as the (main) spec file as *scratch code*, or in combination of both. A program and spec should be normally written in separate files, but in order to do a quick test with a short snippet of code, using scratch code is convenient.",
+coda
+
+spec "===Listing A File",
+	"In order for a program code file to be the object of analysis by Manager, it has to be *listed* in the spec file. Listing a file has two effects:",
+	"# The file becomes the object of analysis, i.e. constants and methods implemented in the file will be detected by Manager, and will be displayed (even if they are not described in the spec file).",
+	"# The file is marked as one of the locations where the constants and methods described in the spec file are expected to reside. Any feature that has an unlisted source location is marked as “Misplaced” (see {=Developer's Chart=Main Information}).",
+	"To list a program file, pass its path as an argument to `manage` method in the spec file in a position before the specifications. The file path may be either absolute or be relative to the spec file. A program file `foo.rb` may internally load a subfile `bar.rb`. If `bar.rb` is to be the object of analysis, it has to listed in the spec file (after `foo.rb`). The beginning of a spec file may look like this:",
+	<<~'RUBY'.code,
+		# frozen_string_literal: false
+		manage "foo.rb"
+		manage "bar.rb"
+	RUBY
+	"If a path passed to `manage` is a directory, then all of its (recursive) entry files are listed (and loaded). If a specific loading order should be imposed among them, write the more specific files or directories that should be loaded earlier in an earlier position. Any files that have already been listed would be skipped when they appear within a directory later passed to `manage`. For example, suppose directory `foo` has files `main.rb`, `sub1.rb`, and `sub2.rb`. Writing:",
+	<<~'RUBY'.code,
+		manage "foo"
+	RUBY
+	"will list all three files, but will not guarantee any loading order among them. If `sub1.rb` and `sub2.rb` both depend on `main.rb` (but do not depend on each other), then `main.rb` has to be loaded first. This can be described as:",
+	<<~'RUBY'.code,
+		manage "foo/main.rb"
+		manage "foo"
+	RUBY
+	"and `main.rb` will not be loaded twice.",
+	"To avoid “Misplaced” markings on features whose source location is unknown (for example, when it is implemented in C), list unknown source locations by passing `nil` to `manage`:",
+	<<~'RUBY'.code,
+		manage nil
+	RUBY
+coda
+
+spec "===Scratch Code",
+	"Scratch code should appear within the main spec file after the line `__END__` after the spec code. Writing in this order encourages test driven development (see {=Simple Example} for examples).",
+coda
+
+spec "==The `spec` method",
+	"Description in Manager is done in units using the method {Module#spec} (This method can appear in the main environment as well as in a module body). The `spec` method is placed in a *context*, i.e, a module (including class) body or the main environment. It takes a *label*, which must be either of the following:",
+	"# A string starting with `::`, which represents a constant (including modules, classes)",
+	"# A string starting with `.`, which represents a singleton method",
+	"# A string starting with `#`, which represents an instance method",
+	"# A string starting with one or more consecutive `=`s and has no other `=`, which represents a description with a numbered section header",
+	"# `nil`, which represents a description without a section header",
+	"followed by an arbitrary number of items (explained in {=Documentation} and {=Testing}), and ends with a pseudo-keyword {Module#coda}. 1–3 above describe a feature, and 4,5 describe a section header. The recommended way of writing descriptions looks like this (empty lines between `coda` and the next `spec` are optional):",
+	<<~'RUBY'.code,
+		class A
+			spec nil,
+				"This class provides API for doing foos.",
+			coda
+
+			spec "=How to Create a New Foo",
+			coda
+
+			spec "#foo",
+				{"(argument)" => Foo},
+				"This method takes a string and converts it into an instance of `Foo`",
+			coda
+
+			spec "::Foo",
+			coda
+		end
+	RUBY
+	"which may result in a user's manual that looks like this:",
+	image("Example of `spec`", "spec/spec_example.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"The `spec` method requires its final argument to be the pseudo-keyword `coda`, which is similar to, but different from, the `end` keyword of Ruby syntax. This design serves two purposes:",
+	"# All items passed to the `spec` method uniformly have to be appended by a comma `,`, which makes it easier for writing or modifying a spec file; the writer does not have to think whether or not to put a comma depending on whether the item is the last one.",
+	"# Without this requirement, an item may be unintentionally skipped because of a forgotten comma after the preceding item. It makes it easier to detect such mistakes.",
+	"The order of the items passed to `spec` is respected in the generated files, but when the same feature is described under multiple calls of the `spec` method, all items will be gathered at the position of the first `spec` call of the feature.",
+coda
+
+spec "===Feature",
+	"By default, a feature description is expected to have:",
+	"* At least one paragraph (see {=Paragraph}) and",
+	"* At least one unit test (see {=Unit Test}).",
+	"Additionally, a feature that is a method is expected to have:",
+	"* At least one method signature (see {=Method Signature}).",
+	"If a feature description lacks a paragraph (or a method signature), then by default it is tagged as “Missing doc”. If a feature description lacks a unit test, then by default it is tagged as “Missing test”.",
+	"Depending on the implementation and description status, a feature may be marked as follows:",
+	"* A feature that is described in the spec file but is not implemented in the program code is marked its visibility as “Unimplemented” (see {=User's Manual=Main Information}).",
+	"* A feature that is not described but is implemented is, by default, marked as “Undocumented” (see {=Developer's Chart=Main Information}).",
+	"* A feature that is described and is implemented is, by default, expected to confirm to the followings. If it violates any, then by default it is marked as “Misplaced”.",
+	"** Be defined within one of the files listed (see {=Listing A File}) or in scratch code (see {=Scratch Code}),",
+	"** Belong to the module it is described under (i.e. not by inheritance), and",
+	"** Not be an alias method (Aliases are shown with the main method).",
+coda
+
+spec "===Hiding or Moving A Feature",
+	"Placing the {Module#hide} method before `spec` hides the feature in the user's manual (but not in the developer's chart), and exempts the feature from “Missing doc” and “Missing test” tags.",
+	<<~'RUBY'.code,
+		hide spec "#foo",
+			...,
+		coda
+	RUBY
+	"Placing either the `hide` method or the {Module#move} method before `spec` indicates that such violation is intended, and exempts the feature from “Undocumented” and “Misplaced” markings.",
+	<<~'RUBY'.code,
+		move spec "#foo",
+			...,
+		coda
+	RUBY
+	"Since `move` plays a proper subset of the roles of `hide`, using both methods simultaneously on a single feature is redundant and is not valid.",
+	"When `hide` or `move` is applied to a method or a constant that is not a module, “Hidden” or “Moved” tag will respectively appear on the features. When they are applied to a module constant, the tag is displayed under the module section, and not on the feature that lists it as a constant. In such case, the effect is inherited by the features and section headers of itself and its (recursive) sub-modules (by they are not tagged). The `hide` method applied to a feature overrides `move` applied to a (less specific) module. For example, the following spec descriptions:",
+	<<~'RUBY'.code,
+		move spec "::A",
+			...,
+		coda
+
+		class A
+			spec "#foo_a",
+				...,
+			coda
+
+			hide spec "#bar_a",
+				...,
+			coda
+
+			class B
+				spec "#foo_b",
+					...,
+				coda
+
+				hide spec "bar_b",
+					...,
+				coda
+			end
+		end
+	RUBY
+	"will make `A`, `A#foo_a`, `B`, and `B#foo_b` moved, and `A#bar_a` and `B#bar_b` hidden.",
+	"The methods `hide` and `move` should be used to hide implementation details in the user's manual. If some features are implemented not for the user's use, but for internal use, then they should be hidden from the user by the `hide` method. If some features are implemented under a module `A` aimed for developers, which is included in, or prepended to, some modules `B` and `C` aimed for the users, then `A` should be marked by `hide`, and `B` and `C` should be marked by `move`.",
+	"A hidden feature cannot include a user item (Cf. {=Developer's Chart=Top Bar}. See subsections in {=Documentation} for whether an item is a user item. No item under {=Testing} is a user item).",
+coda
+
+spec "===Section Header",
+	"Section header starts a section about a module or the entire software (if written in the main environment). If the label passed to `spec` is `nil`, then the section does not have an explicit header. If the label starts with `=`, then the header is numbered, and has the content that is the substring following the `=`s. Header numbering has hierarchy; the number of `=` characters describes the depth of the numbering (one, outermost level to fifth, innermost level). If that is more than five, then, it will be set to the fifth depth.",
+	"No two numbered headers in a sibling position to each other in the same module can have the same content. This is an example of an invalid heading:",
+	<<~'RUBY'.code,
+		class A
+			spec "=About Foo",
+			coda
+
+			spec "=About Bar",
+			coda
+
+			spec "=About Foo",
+			coda
+		end
+	RUBY
+	"This is an example of a valid heading:",
+	<<~'RUBY'.code,
+		spec "=How to Use It",
+		coda
+
+		class A
+			spec "=How to Use It",
+			coda
+		end
+
+		class B
+			spec "=How to Use It",
+			coda
+
+			spec "=Foo",
+			coda
+
+			spec "==How to Use It",
+			coda
+
+			spec "=Bar",
+			coda
+
+			spec "==How to Use It",
+			coda
+		end
+	RUBY
+	"and will be displayed as:",
+	image("Valid Heading", "spec/valid_heading.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===Main Context",
+	"In Ruby code, methods and constants defined in the main context are owned by the `Object` class, hence with respect to the ownership (but not for visibility), it would not make a difference if they were defined in an `Object` class body. Manager handles feature descriptions in the same way; describing a feature in the main context is equivalent to describing it within the `Object` class body.",
+	"However, Manager distinguishes between describing a section header in the main context and describing it within the `Object` class body. The former should be used to describe the entire software, whereas the latter should be done to describe particularly the `Object` class.",
+	"In the following example,",
+	<<~'RUBY'.code,
+		spec "=About This Software",
+			"To install, type `gem install foo`.",
+		coda
+
+		spec "#bar",
+			"Some description about the method `bar`.",
+		coda
+
+		class Object
+			spec "=Some Notes about The `Object` Class",
+				"There are some original methods defined, so be careful.",
+			coda
+
+			spec "#bar",
+				"More description about the method `bar`.",
+			coda
+		end
+	RUBY
+	"the main context and the `Object` class each has a section header and a feature description. It is rendered as:",
+	image("Main context and Object", "spec/main_and_object.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"The descriptions for the instance method `bar`, which is scattered between the main context and `Object` in the spec file, have been combined within `Object` under a single feature header `bar`, whereas the section headers in main and `Object` appear separately.",
+coda
+
+spec "==Documentation",
+coda
+
+spec "===Method Signature",
+	"A method signature is a user item.",
+	"Method signature is described by a hash, with a string key describing arguments and the value describing a (range of) return value. The return value may be described by a class to which the return value belongs to, or by the {Module#value} method with the argument `obj`, which describes the return value as a particular object `obj`, or by the {Module#error} method with the argument `exception_class` that describes a class of exceptions that may be raised. Multiple types of return values may be joined by the method {Class#|} to express alternatives. (The parentheses around the argument of `value` or `error` should not be omitted, as `|` has stronger associativity than method call.)",
+	<<~'RUBY'.code,
+		{"(str, *arr)" => value(-1) | value(0) | value(1) | Array | error(ArgumentError)}
+	RUBY
+	"From the point of view of implementation, a method only has one signature (with possibly optional arguments and varying number of arguments), but form the user's side, it is often helpful to regard some methods as having multiple usages, and to have them documented separately. For example, a method `foo` may be implemented to have an obligatory argument `a` and an optional argument `b`, and an optional block `pr`,",
+	<<~'RUBY'.code,
+		def foo a, b = nil, &pr
+			...
+		end
+	RUBY
+	"These options can be split into several usages. One documentation might be as follows:",
+	<<~'RUBY'.code,
+		spec "#foo",
+			{"(a)" => Foo, "(a, b)" => Foo | error(RuntimeError)},
+			"Without a block, `foo` calculates the foo using the foo algorithm. If an optinal argument `b`
+			is given, an error might be raised.",
+			...,
+			{"(a, &pr)" => Foo | value(nil)},
+			"When a block is given, `foo` passes the foo value to the block.",
+			...,
+		coda
+	RUBY
+	"which would be displayed as:",
+	image("Method signature", "spec/signature.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===Paragraph",
+	"A paragraph is described by a string not beginning with `>`, `*`, or `#`, and optionally beginning with `!` (see {=Annotation} for exceptions). A paragraph is a user item if and only if it does not begin with `!`.",
+	"The following markups are applied to a paragraph, with the priority in the order given:",
+	"# Locally minimum substring surrounded by balanced sequences of one or more backticks `` `...` ``: inline code",
+	"# Substring not including `*` surrounded by double asterisks `**...**`: bold face",
+	"# Substring not including `*` surrounded by single asterisks `*...*`: italics",
+	"# Substring not including `{` and `}` surrounded by a pair of braces `{...}`: link (see {=Link})",
+	"In order to mark an inline code that includes backticks, surround it with a pair of identical sequences of backticks that are longer than any consecutive backticks in the inline code.",
+	"If an inline code begins and/or ends with a backtick, or if the beginning of a paragraph is to be italicized or bold faced, then insert a space to avoid interference with the notation. Such spaces will be stripped.",
+	"Consecutive space characters in a part of string that is not marked up by any of the above are squeezed into single space characters, so line changes can be made in the middle of a string without affecting the output.",
+	"For example,",
+	<<~'RUBY'.code,
+		"The part `* bar *` in `foo * bar * baz` is not interpreted as an italicized word
+			because inline code has precedence over bold face in markup.",
+		'Suppose we have this expression: ``` `echo #{string.sub(/``/, "x")}` ```.
+			If we run it, it will echo something.',
+		" *This is a paragraph that starts with an italicized sentence.*",
+		"! This is a non-user (i.e. developer) paragraph.",
+	RUBY
+	"is rendered in the developer's chart as:",
+	image("Markup", "spec/markup.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"Note that the developer paragraphs are hidden in the user's manual, and the user's paragraphs have a distinct background in the developer's chart.",
+	"As a tip, characters that are difficult to be input from the keyboard can be described by their UTF-16 code in hexadecimal notation after the escape character `\\u` (this is Ruby's feature). For example,",
+	<<~RUBY.code,
+		"\\u25B8" # => "▸"
+	RUBY
+	"Non-marked up portion of a string is also subject to spell checking if the option is turned on (see {=Spell Check (spell_check, spell-check-list, spell-check-filter, case_sensitive, case_insensitive)}).",
+coda
+
+spec "===Link",
+	"Links are expressed in a pair of braces `{` and `}`. No link can have a brace character inside. Depending on the surrounded string, there are three types.",
+coda
+
+spec "====External Links",
+	"An external link is expressed by a string that includes a URL that includes the scheme `://`. The URL can optionally be preceded by a link name and a comma `,`. The name cannot include `=` (This is to avoid ambiguity. See {=Links to Section Headers}). This example:",
+	<<~'RUBY'.code,
+		"This is a link without a name: {https://www.ruby-lang.org}, and
+		{this, https://www.ruby-lang.org} is a link with a name",
+	RUBY
+	"results in:",
+	image("External link", "spec/external_link.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "====Links to Features",
+	"A link to a feature is expressed by a string that has a feature name (which starts with  `::`, `#`, or `.`), and is optionally preceded by a module. Absence of a module makes the current context/module be the relevant domain. If a module is given, it is interpreted with the same rule as in Ruby code, relative to the current context. The following are possible links:",
+	<<~'RUBY'.code,
+		spec "#a",
+			"Links in each list item have the same target.",
+			"* {#b}, {Object#b}",
+			"* {A}, {::A}, {Object::A}",
+		coda
+
+		class A
+			spec "#c",
+				"* {#d}, {::A#d}, {Object::A#d}",
+			coda
+		end
+	RUBY
+coda
+
+spec "====Links to Section Headers",
+	"A link to a section header is expressed by a string that starts with a single `=`, followed by the name of the section header, and is optionally preceded by a module.",
+	"Omission of a module makes the link refer to the current context. The main context is described as `::`, which has different effect from `Object` when linking to section headers, unlike when linking to features (see {=Main Context}). When the link target belongs to a different context from where it is written, the context is described in parentheses. Suppose we have section headers named “Summary” in the main context, the `Object` class, and another class `A`, and some some links:",
+	<<~'RUBY'.code,
+		spec "=Summary",
+		coda
+
+		spec "=Links",
+			"Here is a link: {::=Summary}.",
+			"Here is another: {=Summary}.",
+		coda
+
+		class Object
+			spec "=Place Holder 1",
+			coda
+
+			spec "=Summary",
+			coda
+
+			spec "=Links",
+				"Here is a link: {::=Summary}.",
+				"Here is another: {=Summary}.",
+			coda
+		end
+
+		class A
+			spec "=Place Holder 1",
+			coda
+
+			spec "=Place Holder 2",
+			coda
+
+			spec "=Summary",
+			coda
+
+			spec "=Links",
+				"Here is a link: {::=Summary}.",
+				"Here is another: {=Summary}.",
+			coda
+		end
+	RUBY
+	image("Context of Module Evaluation", "spec/context_module.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"The three links `{::=Summary}` all refer to the same section header in the main context (among which the two that are not written in the main context are displayed with “(main)”), but the three links `{=Summary}` respectively refer to the section header of the context it is written in; only the link `{=Summary}` in the main context has the same target as the `{::=Summary}` links.",
+	"Regardless of the depth of numbering on the target header, the section header name in a link should be prefixed by exactly one `=`. Multiple section headers with the same name within a module can be disambiguated by sufficient levels of ancestor header names joined by `=`, put in front of the `=` before the target header name. Among the matching candidates, the one with the least depth will be referred to. Given a section structure:",
+	<<~'RUBY'.code,
+		spec "=Summary",
+		coda
+	
+		spec "=Foo",
+		coda
+	
+		spec "==Summary",
+		coda
+	
+		spec "=Bar",
+		coda
+	
+		spec "==Summary",
+		coda
+	
+		spec "==Bar",
+		coda
+	
+		spec "===Summary",
+		coda
+	RUBY
+	"rendered as:",
+	image("Nested Section Headers", "spec/nested_section_headers.png", width: "100%;", border: "1px solid hsl(0, 0%, 80%);"),
+	"the four section headers named “Summary” can be unambiguously targeted by the links:",
+	<<~'RUBY'.code,
+		"{=Summary}, {=Foo=Summary}, {=Bar=Summary}, {=Bar=Bar=Summary}"
+	RUBY
+	"which will be rendered as:",
+	image("Unambiguous Links", "spec/unambiguous_links.png", width: "100%;", border: "1px solid hsl(0, 0%, 80%);"),
+coda
+
+spec "===Annotation",
+	"Annotations are not user items.",
+	"A string item in the spec file that starts with  with `!!` or `!`, followed by an optional space, an *annotation tag* consisting of non-space characters, and a colon `:` is an annotation, particularly a log item (rather than a developer's paragraph). A spec file may look like:",
+	<<~'RUBY'.code,
+		manage "sample.rb"
+		
+		spec nil,
+			"!! todo_by_summer: This must be done by the end of summer.",
+			"!! foo_algorithm: This code chunk implements the foo algorithm.
+				It assumes blah blah blah, then calculates blah blah.",
+		coda
+		
+		spec "#foo",
+			"! nil_proof: This routine takes care of the cases when `bar` is `nil`.",
+			"! This is not an annotation but is a developer's paragraph since it does not have a tag.",
+			...
+		coda
+	RUBY
+	"Comment inside a method body in a program code starting with `#!!` or `#!`, and comment lines immediately following such lines are also annotations. If an annotations in a program code has an annotation tag (followed by a colon `:`), the annotation is a log, and is related to other logs extracted from the program code and spec file. If it does not have a tag, then the annotation is an agenda. A method definition in the program code may have annotations like this:",
+	<<~'RUBY'.code,
+		def foo
+			...
+			... #! nil_proof:
+			...
+			#!! foo_algorithm:
+			...
+		end
+		def bar
+			... #!! todo_by_summer:
+			#!! foo_algorithm:
+			...
+			#! Somehow this routine is required.
+			# But I don't know why.
+		end
+	RUBY
+	"The purpose of a tag is to relate different annotations. Annotations in the same scope with the same tag are concatenated and displayed as one (see {=Annotations and Editorial Markings}). The number of exclamation marks at the beginning of an annotation expresses the scope:",
+	"* `#!!` in the spec file or `!!` in a program code expresses file scope; all annotations with the same tag within the same program file are concatenated together.",
+	"* `#!` in the spec file or `!` in a program code expresses method-body scope; all annotations with the same tag within the body of the same method in a program code are concatenated together.",
+	"Running Manager with the spec file above and the program code above (named as `sample.rb`) will result in the following (with irrelevant content removed):",
+	image("Annotations", "spec/annotations.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"An annotation in the spec file with a file-scope tag can only appear in the main context with an implicit or an explicit section header (i.e. not with a constant or a method). The following spec file is invalid.",
+	<<~'RUBY'.code,
+		manage "sample.rb"
+		
+		spec "#foo",
+			"!! todo_by_summer: This must be done by the end of summer.",
+		coda
+
+		class A		
+			spec nil,
+				"!! foo_algorithm: This code chunk implements the foo algorithm.
+					It assumes blah blah blah, then calculates blah blah.",
+			coda
+		end
+	RUBY
+coda
+
+spec "===Citation",
+	"Citation is described by a string starting with `>`. If the string has `!` right after it, then it is not a user item, otherwise, it is a user item.",
+	<<~'RUBY'.code,
+		"> This is user citation",
+		">! This is developer citation",
+	RUBY
+	"These citations are displayed in the developer's chart as:",
+	image("Citations", "spec/citation.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===List",
+	"A list item is described by a string starting with a sequence of one or more `*` or `#`. If the string has `!` right after it, then it is not a user item, otherwise it is a user item.",
+	"Consecutive list items constitute a list. Each `*` or `#` at the beginning of an item represents an un-numbered or numbered item respectively at the corresponding level. No other type of items may intervene list items in order for the list items to be recognized as a single list. This is important for lists that have numbered items, as the numbers will be reset by interruption. The following spec file:",
+	<<~'RUBY'.code,
+		"# user item",
+		"## user item",
+		"##* user item",
+		"## user item",
+		"# user item",
+		"#! developer item",
+		"##! developer item",
+		"#! developer item",
+		"! Some intervening developer's paragraph",
+		"#! developer item",
+		"##! developer item",
+		"##*! developer item",
+		"#! developer item",
+	RUBY
+	"is displayed in the developer's chart as:",
+	image("List", "spec/list.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===Line",
+	"A string that starts with one or more consecutive `-` describes a line. It can be used to split units that are larger than paragraphs. If it is followed by `!`, then it is not a user item. Otherwise, it is a user item.",
+coda
+
+spec "===Code Block",
+	"A code block is expressed by a string followed by the method {String#code} or {String#code!}. These methods take an optional symbol argument in lower case, which describes the programming language in which syntax highlighting takes place (see {=Syntax Highlighting (highlight, highlight-list)}). By default, this is `:ruby`. Method `code` is for user item, and `code!` is for developer item. The recommended practice is to use a here document with an identifier of the form `~'RUBY'`.",
+	"* The `~` un-indents the code block to its least indented level.",
+	"* The single quotes `'...'` assure verbatim interpretation of the code block.",
+	"* A string expressing the language in capital, like `RUBY`, is recognized by many text editors so that syntax highlighting inside the code string will be done in that language.",
+	"!This could not take the form of `code \"some string ...\"` because `code \"some string\", `, followed by a comma is not syntactic in Ruby.",
+	"The following example:",
+	<<~'_'.code,
+		"A Ruby example for users:",
+		<<~'RUBY'.code,
+			def foo
+				puts "This is Ruby code."
+			end
+		RUBY
+		"! and a CSS code for developers:",
+		<<~'CSS'.code!(:css),
+			#main{
+				background-color: green;
+			}
+		CSS
+	_
+	"is displayed in the developer's chart as:",
+	image("Code block", "spec/code_block.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===Image",
+	"An image is expressed by the method {Module#image} or {Module#image!}. Method `image` is for user item, and `image!` is for developer item. These methods take an obligatory string argument expressing the caption, an obligatory string argument describing the path of the image file (either absolute or relative to the output directory; see {=Output Directory (odir)}), and an optional hash of symbol keys and string or numeral values, which will be expanded into CSS commands in the generated HTML files.",
+	"The following example:",
+	<<~'RUBY'.code,
+		"For users",
+		image("Ruby logo (Copyright © 2006, Yukihiro Matsumoto)", "ruby.png", width: 200),
+		"! For developers",
+		image!("Ruby logo (Copyright © 2006, Yukihiro Matsumoto)", "ruby.png", width: 100,
+			border: "1px solid hsl(0, 0%, 80%)"),
+	RUBY
+	"is displayed in the developer's chart as:",
+	image("Image", "spec/image.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===Table",
+	"Tables are user items. They are described by an array of arrays, each of which expresses a row, whose elements are strings, each of which expresses a cell.",
+	"Text alignment of each cell is controlled by initial/final spacing in the string. Depending on whether the string has only a final space, only an initial space, or both, the cell will be left aligned, right aligned, or center aligned, respectively. Otherwise, the string will be left aligned by default. This item:",
+	<<~'RUBY'.code,
+		[
+			[" Right aligned.", "A very very very very very long cell."],
+			["Another cell that is quite loooooooooooooooooong.", " This is centered.  "]
+		],
+	RUBY
+	"is rendered as a table like this:",
+	image("Table", "spec/table.png", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "==Testing",
+	"Manager can perform two types of tests: *unit test* and *benchmark*.",
+coda
+
+spec "===Unit Test",
+	"A unit test can be defined by the following steps:",
+	"# *Setup*: Prepare objects and states required for the test. Often described by the term `Given` in conventional test frameworks.",
+	"# *Exercise*: Perform the behavior that is the object of test. Often described by `When`.",
+	"# *Verification*: Check the result of exercise. Often described by `Then`.",
+	"# Additional verification: In required, do more checks on the result or on any change that is caused by the exercise. Often described by `And` after `Then`.",
+	"In unit test in Manager, each step is described in the following way:",
+	"# Setup: Describe the objects using Ruby literal expressions, or using {String#setup} and {::#expr} methods (see {=The `expr` Method}, {=Setup and Teardown}).",
+	"# Exercise: Describe the Ruby expression that should be performed using the objects prepared by setup, but substitute the relevant feature (method or constant) call with the placeholder {BasicObject#UT}.",
+	"# Verification: After the exercise, chain method call(s) that should be evaluated to a truthy value. (For this step, a methods named `initialize` and `method_missing` cannot be used. But this should rarely be a problem.)",
+	"# Additional verification: Describe in a similar way as verification, but substitute the return value of exercise and the original receiver of exercise with the placeholders `RETURN` and `RECEIVER`, respectively.",
+	"Every time `UT` is called, the value of `RETURN` and `RECEIVER` are reset.",
+	"The following is an example of testing the `Array#push` method.",
+	<<~'RUBY'.code,
+		class Array
+			spec "#push",
+				[].UT("a") == ["a"],
+				RETURN.length == 1,
+				RECEIVER == ["a"],
+				[].UT("a", "b") == ["a", "b"],
+				RETURN.length == 2,
+				RECEIVER == ["a", "b"],
+			coda
+		end
+	RUBY
+	"The first instance of `RETURN` and `RECEIVER` refer to the result of the first exercise (expressed by `UT`) and its original array receiver. By the second `UT` call, they are reset, so that the second instance of `RETURN` and `RECEIVER` refer to the new return value and the new receiver array.",
+	"The result is as follows:",
+	image("Unit test succeeded", "spec/unit_test_success.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"An example of test failure is as follows:",
+	<<~'RUBY'.code,
+		class String
+			spec "#concat",
+				"".UT(:a) == "a",
+				RETURN.length == 1,
+				RECEIVER == "a",
+			coda
+		end
+	RUBY
+	image("Unit test failed", "spec/unit_test_failure.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"After the first exercise is reported as resulting in a bug, the two verifications following (using `RETURN` and `RECEIVER`) are reported as untestable. They are reported as success or bug only when there is a preceding exercise that has succeeded. There are some other possibilities for the result of a unit test. See {=Test Reports} for detail.",
+	"In order to repeat the same test schema over data, a tip is to use `map` with splat `*`.",
+	<<~'RUBY'.code,
+		spec "#foo",
+			*[
+			  ["a", 1],
+			  ["b", 2],
+			  ["c", 3],
+			].map{|receiver, argument| receiver.UT(argument)},
+		coda
+	RUBY
+coda
+
+spec "====Testing with `succeed?`, `raise?`, and `throw?`",
+	"Sometimes, it is necessary to only verify that examination was performed without raising an exception. In such cases, use the method `succeed?`. Tests using this method will report success whenever examination was performed without an exception, without particular verification on the return value.",
+	<<~'RUBY'.code,
+		class String
+			spec "#concat",
+				"".UT(:a).succeed?,
+				"".UT("a").succeed?,
+			coda
+		end
+	RUBY
+	image("Unit test checking successful examination", "spec/unit_test_succeed.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"This method is useful also when one is interested in verifying the receiver of the feature, without particular expectation on the return value.",
+	<<~'RUBY'.code,
+		class String
+			spec "#concat",
+				"".UT("a").succeed?,
+				RECEIVER == "a",
+			coda
+		end
+	RUBY
+	image("Unit test verifying the receiver", "spec/unit_test_receiver.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"On the contrary, to unit test with the expectation that an exception be raised, use the `raise?(exception = StandardError, include_subclass = true, message: nil)` method as verification. When `include_subclass` is truthy (as in default), an instance of `exception` should be raised for the unit test to succeed. Otherwise, a kind of `exception` class should be raised. When `message` (assumed to be an instance of a `String` or `RegExp`) is given, `message ===` will be evaluated with the message string as argument. It must return a truthy value for the unit test to succeed. An example is this:",
+	<<~'RUBY'.code,
+		class String
+			spec "#concat",
+				"".UT(:a).raise?(TypeError, message: /no implicit conversion/i),
+				"".UT(:a).raise?(StandardError, false),
+			coda
+		end
+	RUBY
+	image("Unit test expecting an exception", "spec/unit_test_raise.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"The first test succeeded with the raise exception class being `TypeError`, and its message matching the pattern. The second test failed because, although `StandardError` is an ancestor of `TypeError`,  the `include_subclass` option was set to `false`.",
+	"Similarly, to check that examining the feature throws an object, use the `throw?(tag [,obj])` method. Suppose the following method is defined:",
+	<<~'RUBY'.code,
+			def throw_check
+				throw(:yes, "correct")
+			end
+	RUBY
+	"Under such situation, the thrown tag and the returned object can be checked as follows:",
+	<<~'RUBY'.code,
+		spec "#throw_check",
+			UT.throw?(:yes),
+			UT.throw?(:no),
+			UT.throw?(:yes, value: "correct"),
+			UT.throw?(:yes, value: "wrong"),
+		coda
+	RUBY
+	image("Unit test expecting throwing", "spec/unit_test_throw.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+coda
+
+spec "===Benchmark",
+	"Benchmark is described similarly to unit test, but it only has the setup and exercise steps. For the exercise step, use the placeholder {BasicObject#BM}. Benchmark is meaningful only when there are alternative implementations for the method in question (see {=Alternative Implementations}). Suppose the following three alternative implementations are examined for a feature that parses an integer from a string:",
+	<<~'RUBY'.code,
+		class String
+			def check_int__1
+				Integer(self) rescue false
+			end
+			def check_int__2
+				to_i.to_s == self
+			end
+			def check_int__3
+				self =~ /\A\d+\z/
+			end
+		end
+	RUBY
+	"Under such situation, the following benchmark test:",
+	<<~'RUBY'.code,
+		class String
+			spec "#check_int",
+				"220000".BM,
+				"22.to.2".BM,
+			coda
+		end
+	RUBY
+	"can have a result like:",
+	image("Benchmark test", "spec/benchmark_test.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"Based on the result, one may discuss that `check_int__1` performs the best with string expressing valid integers like `\"220000\"`, but its performance is not stable, as can be seen in the slowness with invalid strings like `\"22.to.2\"`.",
+coda
+
+spec "===Test Header",
+	"Test items can be grouped into a hierarchy, numbered, and named using *test headers*. A test header is described as a string that starts with one or more question mark characters `?`. Each header is numbered at the depth represented by the number of `?` characters at the beginning. Examples are shown below:",
+	<<~'RUBY'.code,
+		class String
+			spec "#capitalize!",
+				"? When `self` is not capitalized, it should return the capitalized string.",
+					"foo".UT == "Foo",
+				"? When there is nothing to capitalize, it should return `nil`.",
+					"?? When `self` is already capitalized",
+						"Foo".UT == nil,
+					"?? When `self` does not start with a letter",
+						"@foo".UT == nil,
+			coda
+		end
+	RUBY
+	"The result may be displayed as follows:",
+	image("Test header", "spec/test_header.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),
+	"In future versions of Manager, test header is planned to play a role in doing test setups in hierarchy (cf. nested setup syntax in conventional test frameworks), but its specification is not decided yet. Feedback is welcome.",
+coda
+
+spec "===The `expr` Method",
+	"Besides being directly described as objects, the receiver and arguments of tests can be described using the method {Object#expr}, which takes a string argument. The string is evaluated at the timing of the relevant test step. The `expr` method has three purposes:",
+	"# Reset the object in case performing the tests modifies the objects involved",
+	"# Control the inspection form that is displayed in the test reports",
+	"# Refer to objects in the context of the test (such as is defined in a setup, see {=Setup and Teardown})",
+	"As an example of the first purpose, suppose some alternative implementations of a destructive method are defined:",
+	<<~'RUBY'.code,
+		class Array
+			def push_a
+				push("a")
+			end
+			def push_a__length
+				self[length] = "a"
+				self
+			end
+		end
+	RUBY
+	"and they are to be tested. A test simply written with an array literal like this:",
+	<<~'RUBY'.code,
+		class Array
+			spec "#push_a",
+				[].UT == ["a"],
+			coda
+		end
+	RUBY
+	"succeeds for the main implementation `push_a`, but will fail for the alternative implementation `push_a__length` because the same array object described by a literal expression in the spec file is modified during the exercise of `push_a`, then is further used in exercising `push_a__length`:",
+	image("Problem with testing destructive method", "spec/without_expr.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),	
+	"Such problem is avoided by using the `expr` method with the relevant expression. Doing as follows:",
+	<<~'RUBY'.code,
+		class Array
+			spec "#push_a",
+				expr("[]").UT == ["a"],
+			coda
+		end
+	RUBY
+	"makes the test succeed:",
+	image("Using `expr` with destructive method", "spec/with_expr.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),	
+	"The `expr` method can be used:",
+	"* At the receiver and the argument positions of `UT`, `BM`,",
+	<<~'RUBY'.code,
+		expr("[]").UT(expr("{a: 1}")).foo?,
+		expr("Array.new(3)").BM(expr("foo")),
+	RUBY
+	"* At the argument positions of a method within a method chain of verification,",
+	<<~'RUBY'.code,
+		["a"].UT(:foo).foo?(expr("[\"a\"]")).bar == expr("bar"),
+	RUBY
+	"* At the argument positions of a method within a method chain following `expr`,",
+	<<~'RUBY'.code,
+		expr("[]").expr("aa(1)").UT(expr("{b: :x}").baz.expr("[\"a\"]")).foo?,
+		RECEIVER.foo?(expr("[\"a\"]").bar.expr("baz")),
+	RUBY
+	"* At the argument positions of `expr`,",
+	<<~'RUBY'.code,
+		RETURN.bar?(expr(expr("baz(foo)"), 2)),
+	RUBY
+	"* At the block positions of any of the above. (It should be in the form `&expr(\"{...}\")`.)",
+	<<~'RUBY'.code,
+		[].UT(a: 1, &expr("{|s| s.upcase}")),
+		["a"].UT(:foo).foo?(["a"], &expr("{|x, y| x + y}")).bar,
+		RECEIVER.foo?(expr("[\"a\"]").bar(5, &expr("{|e| e.baz}"))),
+		RETURN.bar?(expr("baz(foo)", &expr("{|e| e + 2}"))),
+	RUBY
+	"If `expr` appears in other positions, i.e. in an embedded position of these positions, it may not work correctly. The following are illicit uses of `expr`.",
+	<<~'RUBY'.code,
+		["a", expr("foo")].UT(bar({a: 1})).foo?,
+		["a", "foo"].UT(bar(expr("{a: 1}"))).foo?,
+	RUBY
+	"As an example of the second purpose, suppose the receiver for test examination is a huge array. The result of a test like:",
+	<<~'RUBY'.code,
+		Array.new(1000){"a"}.UT("b") == Array.new(1000){"a"} + Array.new(1000){"b"},
+	RUBY
+	"would have huge arrays displayed in their inspection form like this:",
+	image("Long inspected expression", "spec/long.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),	
+	"When you do not want an object to be displayed in its expanded and inspected form because it is too long as in this case, or when it would not be readable, you can use the `expr` method. Wrapping the long arrays in the example above with `expr` as in:",
+	<<~'RUBY'.code,
+		expr("Array.new(1000){\"a\"}").UT("b") ==
+			expr("Array.new(1000){\"a\"} + Array.new(1000){\"b\"}"),
+	RUBY
+	"would make the displayed result shorter and understandable. The parts of the expression using `expr` are displayed in the form of the string passed:",
+	image("Display made short with `expr`", "spec/short.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),	
+coda
+
+spec "===Setup and Teardown",
+	"The third purpose of using `expr` in tests is to refer to variables and methods that have been set up in advance. A setup can be described as a string followed by the {String#setup} method. The recommended way is to write this as a here document, as with code blocks ({=Code Block}). Setups are accumulated over the spec file, and is evaluated for each exercise step in a test. The {Module#teardown} item will reset all preceding setups. Following is an example of using these methods.",
+	<<~'_'.code,
+		class Array
+			spec "#flatten!",
+				<<~'RUBY'.setup,
+					a1 = [1, 2, 3]
+					a2 = [4, [5, 6]]
+					a3 = [a1, [], a2]
+				RUBY
+				expr('[a1, a2]').UT == [1, 2, 3, 4, 5, 6],
+				RECEIVER == [1, 2, 3, 4, 5, 6],
+				expr('a3').UT == [1, 2, 3, 4, 5, 6],
+				expr('a3').UT(0).nil?,
+				RECEIVER == expr('[a1, [], a2]'),
+				teardown,
+				<<~'RUBY'.setup,
+					a1 = []
+				RUBY
+				expr('a1').UT.nil?,
+			coda
+		end
+	_
+	"This will result in the following:",
+	image("Setup and teardown", "spec/setup_teardown.png", width: "100%", border: "1px solid hsl(0, 0%, 80%)"),	
+	"Any changes made by `setup` to global variables are not reset by `teardown`, and needs to be undone manually. Not doing so properly can result in Manager not running correctly.",
+	"In future versions of Manager, test setups are planned to be more structured, i.e. in hierarchy as in nested setup syntax in conventional test frameworks, but its specification is not decided yet. Feedback is welcome.",
+coda

@@ -1,0 +1,49 @@
+#!ruby
+# frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+module Manager::Spellcheck
+	def self.prepare
+		require "ffi/aspell"
+	rescue LoadError
+		raise "Configuration is set to use spell checking, which requires the `ffi-aspell` gem. "\
+		"Either install this gem, or turn off spell checking."
+	end
+	def self.list
+		prepare
+		speller = FFI::Aspell::Speller.new
+		speller.send(:available_dictionaries)
+	ensure
+		speller &.close
+	end
+	def self.language? language
+		prepare
+		speller = FFI::Aspell::Speller.new
+		speller.dictionary_available?(language)
+	ensure
+		speller &.close
+	end
+	def self.new language
+		prepare
+		FFI::Aspell::Speller.new(language)
+	end
+	def self.regex language
+#!Make it multilingual
+		/[a-zA-Z][a-zA-Z']*[a-zA-Z]/
+	end
+	def self.filter language, words
+		raise "No dictionary given." unless language
+		begin
+			require "ffi/aspell"
+			speller = FFI::Aspell::Speller.new(language)
+		rescue LoadError
+			raise "Needs the `ffi-aspell` gem."
+		rescue ArgumentError
+			raise "Dictionary `#{language}` is not available."
+		end
+		words.reject{|w| speller.correct?(w)}
+	ensure
+		speller &.close
+	end
+end

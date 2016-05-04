@@ -1,0 +1,76 @@
+# frozen_string_literal: false
+
+Manager.config(
+	title: "Manager",
+	bdir: "../lib/manager",
+	odir: "../",
+	spell_check: :en,
+)
+
+Manager.config case_sensitive: %w[
+API
+CSS
+Ctrl
+DDD
+UTF
+]
+
+Manager.config case_insensitive: %w[
+associativity
+backtick
+backticks
+backtrace
+backtraces
+bdir
+checkbox
+dev
+disambiguated
+dom
+falsy
+getter
+initializer
+matchers
+merchantability
+mixin
+mixins
+noninfringement
+odir
+pragma
+prepended
+runtime
+sawa
+setter
+subfile
+sublicense
+substring
+superset
+teardown
+truthy
+un
+untestable
+verifications
+verifier
+versioning
+]
+
+#gemspec "../manager.gemspec"
+
+#! Loading the three files commented out would cause an error. This is a limitation of 
+# analyzing Manager using Manager itself. The features that appear in these files need to 
+#  be manuall described.
+manage "../lib/manager/annotation"
+#manage "../lib/manager/input"
+#manage "../lib/manager/manager.rb"
+manage "../lib/manager/refine_module"
+manage "../lib/manager/refine_object_mapping"
+#manage "../lib/manager/refine_test"
+manage "../lib/manager/render"
+manage "../lib/manager/test"
+manage "../lib/manager/test_helper"
+manage "../lib/manager/spell_check"
+
+load "#{__dir__}/documentation"
+load "#{__dir__}/test_unit_spec"
+
+manage "test_program"
+load "#{__dir__}/test_non_unit_spec"

@@ -1,0 +1,257 @@
+//-*-mode: javascript-*-
+
+// Copyright (c) 2014-2016 sawa
+
+var main;
+var scrollMargin;
+
+// Scroll to the anchor.
+window.onhashchange = function(e) {
+//	location.href = location.hash;
+//	main.scrollTop -= main.offsetHeight * 0.5 + scrollMargin;
+	main.scrollTop -= scrollMargin;
+};
+
+document.body.onload = function() {
+	main = document.getElementById('main');
+	//This line is needed to invoke `window.onhashchange` even when `location.hash`
+	//  is the same as the previous load.
+	location.hash = '';
+	//TODO. Import data from webstore.
+	//location.hash =
+	var joinQuery = function(obj, prefix, affix){
+		return prefix + obj.dataset.tags.split(' ').join(affix + ', ' + prefix) + affix;
+	}
+	var tagsumPrefix = '#tagsum-', tagsumAffix = ':not([style="opacity: 0.2;"])';
+	var i, obj, query;
+	query = '.feature:not([style="display: none;"]) .tag.';
+	for(i = 1; obj = document.getElementById('user-feature-navigation' + i); i++) {
+		obj.query = joinQuery(obj, query, '');
+		obj.tagsums = joinQuery(obj, tagsumPrefix, tagsumAffix);
+		initializeNavigation(obj);
+	}
+	for(i = 1; obj = document.getElementById('dev-feature-navigation' + i); i++) {
+		obj.query = joinQuery(obj, query, '');
+		obj.tagsums = joinQuery(obj, tagsumPrefix, tagsumAffix);
+		initializeNavigation(obj);
+	}
+	query = '\
+	.feature:not([style="display: none;"]):not([folded="true"]) \
+	.feature-contents > :not([style="display: none;"]) \
+	.anchor:not([style="display: none;"]) \
+	.tag.';
+	for(i = 1; obj = document.getElementById('anchor-navigation' + i); i++) {
+		obj.query = joinQuery(obj, query, '');
+		obj.tagsums = joinQuery(obj, tagsumPrefix, tagsumAffix);
+		initializeNavigation(obj);
+	}
+	var objs = document.getElementsByClassName('feature');
+	for(var i = 0; i < objs.length; i++) {
+		// TODO. copy from webstore if any.
+		objs[i].hiddenFor = {};
+//		hide(objs[i], Object.keys(objs[i].hiddenFor).length);
+	}
+	switch(document.body.id){
+		case 'user':
+			scrollMargin = 200;
+			// Click "Features" button.
+			document.getElementById('top').children[0].children[1].onclick();
+		break;
+		case 'dev':
+			// Approximates half of line height from experience. TODO: Do it logically.
+			scrollMargin = 200;
+			// Click "Full" button. (Neccessary to do this also for adding `folded` attribute)
+			document.getElementById('top').children[0].children[2].onclick();
+		break;
+	}
+	// Prevents feature toggling.
+	// Overwriting `onclick` does not interfere with linking to `href`; it is different from `onclick`.
+	var objs = document.getElementsByTagName('a');
+	for(var i = 0; i < objs.length; i++) objs[i].onclick = function(e) {e.stopPropagation();};
+};
+
+initializeNavigation = function(obj) {
+	obj.features = document.querySelectorAll(obj.query);
+	var sum = obj.features.length;
+	obj.querySelector('.sum').innerText = sum;
+	var excluded = -sum;
+	var objs = document.querySelectorAll(obj.tagsums);
+	for(var i = 0; i < objs.length; i++) excluded += parseInt(objs[i].innerText);
+	obj.querySelector('.excluded').innerText = excluded;
+	var current = obj.querySelector('.current');
+	if(sum == 0) {
+		current.innerText = 1;
+	} else {if(parseInt(current.innerText) > sum
+		) current.innerText = sum;
+	};
+};
+
+initializeNavigations = function() {
+	for(var i = 1, obj; obj = document.getElementById('user-feature-navigation' + i); i++
+	) initializeNavigation(obj);
+	for(var i = 1, obj; obj = document.getElementById('dev-feature-navigation' + i); i++
+	) initializeNavigation(obj);
+	for(var i = 1, obj; obj = document.getElementById('anchor-navigation' + i); i++
+	) initializeNavigation(obj);
+};
+
+getFeatureNodeFromId = function(id) {
+	var obj = document.getElementById(id);
+	if(!obj) return null;
+	while(true) {
+		if(obj.className == 'feature') return obj;
+		obj = obj.parentNode;
+		if(!obj) return null;
+	}
+};
+
+getIdFromObj = function(obj) {
+	while(true) {
+		if(obj.id) return obj.id;
+		obj = obj.parentNode;
+		if(!obj) return null;
+	}
+};
+
+hide = function(obj, bool) {obj.style.display = bool ? 'none' : null;};
+
+inactivate = function(obj, bool) {obj.style.opacity = bool ? 0.2 : null;};
+
+mark = function(obj, bool) {return obj.marking = bool;};
+
+toggleMarking = function(obj) {return obj.marking = !obj.marking;};
+
+hideByTag = function(obj, tag, bool) {
+	if(bool) {obj.hiddenFor[tag] = true;} else {delete obj.hiddenFor[tag];};
+	hide(obj, Object.keys(obj.hiddenFor).length);
+};
+
+foldModuleContents = function(obj, bool){
+	obj.firstChild.setAttribute('folded', bool);
+	var objs = obj.childNodes;
+	foldFeatureContents(objs[0], bool);
+	// From the second children.
+	for (var i = 1; i < objs.length; i++) hideByTag(objs[i], 'folded', bool);
+	return bool;
+};
+
+foldFeatureContents = function(obj, bool){
+	obj.setAttribute('folded', bool);
+	hide(obj.firstChild.nextSibling, bool);
+	return bool;
+};
+
+displayMode = function(bool1, bool2) {
+	var objs = document.getElementsByClassName('module');
+	for(var i = 0; i < objs.length; i++) foldModuleContents(objs[i], mark(objs[i], bool1));
+	// `[onclick]`: Features with `type` `:module_as_constant` are not clickable.
+	// `:not(:first-child)`: Don't fold module headers here.
+	var objs = document.querySelectorAll('.feature[onclick]:not(:first-child)');
+	for(var i = 0; i < objs.length; i++) foldFeatureContents(objs[i], mark(objs[i], bool2));
+	initializeNavigations();
+};
+
+toggleModuleContents = function(feature) {
+	var module = feature.parentNode;
+	var bool = foldModuleContents(module, toggleMarking(module));
+	if(bool) {
+		module.scrollIntoView();	
+		window.onhashchange();
+	}
+	initializeNavigations();
+};
+
+toggleFeatureContents = function(feature) {
+	var bool = foldFeatureContents(feature, toggleMarking(feature));
+	if(bool) {
+		feature.scrollIntoView();	
+		window.onhashchange();
+	}
+	initializeNavigations();
+};
+
+toggleUserItems = function(button) {
+	// recordScrollPosition();
+	var bool = toggleMarking(button);
+	inactivate(button, bool);
+	objs = document.getElementsByClassName('user-item');
+	for(i = 0; i < objs.length; i++) hide(objs[i], bool);
+	initializeNavigations();
+	// resumeScrollPosition();
+};
+
+toggleFeatures = function(button, tag, navigation) {
+	// recordScrollPosition();
+	var bool = toggleMarking(button);
+	inactivate(button, bool);
+	inactivate(document.getElementById('tagsum-' + tag), bool);
+	for(var i = 1, obj; obj = getFeatureNodeFromId(tag + i); i ++) hideByTag(obj, tag, bool);
+	navigation = document.getElementById(navigation);
+	initializeNavigations();
+	// resumeScrollPosition();
+};
+
+toggleAnchors = function(button, tag, navigation) {
+	// recordScrollPosition();
+	var bool = toggleMarking(button);
+	inactivate(button, bool);
+	inactivate(document.getElementById('tagsum-' + tag), bool);
+	for(var i = 1, obj; obj = document.getElementById(tag + i); i ++) hide(obj, bool);
+	navigation = document.getElementById(navigation);
+	initializeNavigation(navigation);
+	// resumeScrollPosition();
+};
+
+navigateTag = function(navigation, d) {
+	var n = navigation.features.length;
+	if(n == 0) return;
+	var old = document.getElementById('current');
+	if(old) old.removeAttribute('id');
+	var current = navigation.querySelector('.current');
+	current.id = 'current';
+	var i = parseInt(current.innerText) + d;
+	if(i < 1) i = 1;
+	if(i > n) i = n;
+	current.innerText = i;
+	location.hash = getIdFromObj(navigation.features[i - 1]);
+};
+
+//var lastToggled =
+//var lastViewPort =
+recordScrollPosition = function() {
+//	main.scrollTop = navigation.features[i - 1].offsetTop - main.offsetTop;
+/*
+foo = function(obj) {
+	var ref =  window.scrollY - window.pageYOffset + document.documentElement.clientTop;
+	var checkChildDivs = function() {
+		var children = obj.childNodes;
+		if (children.length) {[].forEach.call(children, function(e, i, a) {
+			if (e.toString() === "[object HTMLDivElement]") {
+				// the top of the div relative to the document
+				// minus the height of window hidden above the top of the screen
+				var top = e.getBoundingClientRect().top;
+				// top and bottom posns relative to the top of the screen
+				// the top and bottom distances of the element relative to the top of the screen
+				// the div overlaps the screen top
+				if ((top <= ref) && (ref <= top + e.offsetHeight)) {
+					obj = e;
+					checkChildDivs();
+					return false;
+				}
+			}
+		});}
+	};
+	checkChildDivs();
+	return obj;
+};
+*/
+};
+
+resumeScrollPosition = function() {
+};
+
+coverage = function(obj){
+	alert("Sorry, this function is not implemented.");
+//	alert(obj.nextSibling.contentDocument.querySelector('body').innerText);
+//	var f = obj.dataset.file;
+};

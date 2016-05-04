@@ -1,0 +1,43 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+require "manager"
+
+command_options = {debug: false}
+ARGV.map!(&:+@)
+while ARGV.first.sub!(/\A--?/, "")
+	k, v = ARGV.shift.split("=")
+	k, v = k.tr("-", "_").to_sym, v || true
+	case k
+	when :theme_list
+		Dir.glob("#{__dir__}/../theme/*").each do
+			|f|
+			File.new(f).each.first[%r[/\*\s*(.+?)\s*\*/]]
+			puts "#{File.basename(f)}#{" [#$1]" if $1}"
+		end
+		exit
+	when :highlight_list
+		puts CodeRay::Scanners.list
+		exit
+	when :spell_check_list
+		puts Manager::Spellcheck.list
+		exit
+	when :spell_check_filter
+		language = ARGV.shift
+		begin
+			a = Manager::Spellcheck.filter(language, ARGV)
+			puts "The following words are not in the dictionary `#{language}`: "
+			a.each{|w| puts w}
+		rescue => e
+			puts e.message
+		end
+		exit
+	when :bdir, :odir, :user, :dev, :theme, :highlight, :debug, :spell_check, :case_sensitive, :case_insensitive, :timeout, :title, :coverage
+		command_options.store(k, v)
+	else abort "Invalid option #{k}"
+	end
+end
+abort "Spec file not given" if ARGV.empty?
+Manager.new(File.expand_path(ARGV.shift), **command_options)
