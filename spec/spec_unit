@@ -1,0 +1,789 @@
+#! frozen_string_literal: false
+
+spec nil,
+	"! Here are some limitations of running Manager on Manager itself.",
+	"*! Manager cannot automatically detect some of its own features. They needed to be documented manually.",
+	"*! Some of Manager's own features cannot be tested.",
+	"*! Some of Manager's own features cannot be tested in a unit test. They are tested by intentionally being expected to raise Missing test, Unimplemented, Untestable, Bad test, or Bug. Their headers describe that such reports are expected. Their reports should be manually examined.",
+coda
+
+class Manager
+	hide spec "::DebugDirs",
+		"! Directories internal to Manager. Files that belong to these directories should be exempt from backtraces in test reports.",
+		UT.all?{|f| f =~ %r|/bin/| or f =~ %r|/gems/|},
+	coda
+
+	hide spec "::Main",
+		"! The main environment.",
+		UT.class == Object,
+	coda
+	hide spec "::AlternativeMethod",
+		"! Matches alternative implementations of a method.",
+		"? Should not match balanced `__`.",
+		UT !~ "__foo__",
+		UT !~ "foo__bar__",
+		UT !~ "__foo__bar",
+		UT !~ "foo__bar__baz",
+		UT !~ "__foo__bar__",
+		"? The label should not be empty.",
+		UT !~ "foo__",
+		"? Should match.",
+		UT =~ "foo__my_foo",
+		UT =~ "foo__2",
+		UT =~ "foo__my_version?",
+		(UT =~ "foo__my").zero?,
+	coda
+
+	hide spec "::InterruptionInactive",
+		"! Default (inactive) `Proc` to be called when Ctrl+C is pressed. The sole function is to erase `^C-c` that is printed on the screen because of the key press.",
+		UT.call.nil?,
+	coda
+
+	hide spec ".current",
+		"! Returns the current running instance.",
+		UT.is_a?(Manager),
+	coda
+
+	hide spec ".context",
+		"! Short for `.current.context`, the current testing context.",
+		UT.is_a?(Manager::Context),
+	coda
+
+	hide spec ".counts",
+		"! Short for `.current.counts`. Holds all the statistics.",
+			UT.is_a?(Hash),
+	coda
+
+	move spec ".config",
+		"! Defined in a file that cannot be listed.",
+		"! Cannot be tested.",
+		"! Moved since its real source location cannot be listed by `manage` method.",
+		{"(symbol)" => Object},
+		"Gets the Manager configuration. `symbol` can take the following values. See {::=Customization and Options} for detail.",
+		"* `:bdir`",
+		"* `:odir`",
+		"* `:user`",
+		"* `:dev`",
+		"* `:theme`",
+		"* `:highlight`",
+		"* `:debug`",
+		"* `:spell_check`",
+		"* `:case_sensitive`",
+		"* `:case_insensitive`",
+#		"* `:timeout`",
+		"* `:title`",
+		<<~'RUBY'.code,
+			Manager.config(:odir)
+		RUBY
+		UT(:bdir).is_a?(String),
+		UT(:odir).is_a?(String),
+		UT(:user).is_a?(String),
+		UT(:dev).is_a?(String),
+		UT(:theme).is_a?(String),
+		UT(:highlight).is_a?(String),
+		UT(:debug).instance_eval{|e| e == true or e == false},
+		UT(:spell_check).instance_eval{|e| e.is_a?(String) or e.is_a?(Symbol)or e.nil?},
+		UT(:case_sensitive).is_a?(Hash),
+		UT(:case_insensitive).is_a?(Hash),
+		UT(:timeout).instance_eval{|e| Numeric === e or e.nil?},
+		UT(:title).is_a?(String),
+		{"(hash)" => value(nil)},
+		"Sets the Manager configuration. `hash` should be a symbol key with the value to be set.",
+		<<~'RUBY'.code,
+			Manager.config(odir: "../", title: "My Special Program", spell_check: "en")
+		RUBY
+	coda
+
+	hide spec "#files",
+		"! Getter/setter. List of files loaded or required. Including listed and non-listed ones.",
+		expr("Manager.current").UT.is_a?(Array),
+	coda
+
+	hide spec "#implementations",
+		"! Getter/setter. A hash of implementations extracted from the program code.",
+		expr("Manager.current").UT.is_a?(Hash),
+	coda
+
+	hide spec "#annotations",
+		"! Getter/setter. A hash of annotations extracted from the program code.",
+		expr("Manager.current").UT.is_a?(Hash),
+	coda
+
+	hide spec "#context",
+		"! Getter/setter. The current binding object under which `expr` is evaluated.",
+		expr("Manager.current").UT.is_a?(Manager::Context),
+	coda
+
+	hide spec "#counts",
+		"! Getter/setter. Holds all the statistics.",
+		expr("Manager.current").UT.is_a?(Hash),
+	coda
+
+	hide spec "#annotation_extractor",
+		"! Cannot be tested because `Manager::AnnotationExtractor` is refined.",
+		"! Getter/setter",
+	coda
+
+	hide spec "#slf",
+		"! Getter. Current environment. Either a module or the main object, or `nil`.",
+		expr("Manager.current").UT.instance_eval{|e| e.kind_of?(Module) or e == Manager::Main or e.nil?},
+	coda
+
+	hide spec "#sample",
+		"! Getter. The current test exercise receiver. Can be any object.",
+		expr("Manager.current").UT.succeed?,
+	coda
+
+	hide spec "#modul",
+		"! Getter. The current module.",
+		expr("Manager.current").UT.is_a?(Module),
+	coda
+
+	hide spec "#type",
+		"! Getter. The current type.",
+		expr("Manager.current").UT.in?([:module, :constant, :module_as_constant, :singleton, :instance]),
+	coda
+
+	hide spec "#feature",
+		"! Getter. The current feature.",
+		expr("Manager.current").UT.instance_eval{|e| String === e or Symbol === e},
+	coda
+
+	move spec ".new",
+		"! Defined in a file that cannot be listed.",
+		"! Cannot be tested",
+		"The main method to be called when running Manager. See {::=Running Manager}.",
+		{"(file, **command_options)" => value(nil)},
+		"The `file` argument is a string expressing the path to the spec file. `command_options` are options as explained in {::=Customization and Options}.",
+		<<~'RUBY'.code,
+			Manager.new("../spec_file.rb", bdir: "../")
+		RUBY
+	coda
+
+	hide spec "#gemspec",
+		"! Cannot be tested",
+		"! Called from `main#gemspec`",
+	coda
+
+	hide spec "#manage",
+		"! Cannot be tested",
+		"! Called from `main#manage`",
+	coda
+
+	hide spec "#hide",
+		"! Cannot be tested.",
+		"! Called from `Module#hide`",
+	coda
+
+	hide spec "#move",
+		"! Cannot be tested.",
+		"! Called from `Module#move`",
+	coda
+
+	hide spec "#_spec",
+		"! Cannot be tested.",
+		"! Method called by `Module#spec` after verification.",
+	coda
+
+	hide spec "::Coda",
+		"! Called from `Module#coda`",
+		"! Dummy constant called by the pseudo-keyword `coda` to close a block opened by the `spec` method.",
+	coda
+
+	hide spec ".validate_feature_call",
+		"! Validates the `feature`, and check is the `spec` block was correctly closed by a `coda`.",
+		"? Correct feature names",
+		UT(Object, "::Foo", Coda).succeed?,
+		UT(Object, ".foo", Coda).succeed?,
+		UT(Object, "#foo", Coda).succeed?,
+		UT(Object, nil, Coda).succeed?,
+		"? Cannot check the cases with `=`.",
+		"? Invalid feature name",
+		UT(Object, "@foo", Coda).raise?(message: /invalid feature name/i),
+		"? Alternative implementation name used as a main method name",
+		UT(Object, "#foo__1", Coda).raise?(message: /crashes/),
+		"? Missing coda",
+		UT(Object, "#foo", :foo).raise?(message: /missing/i),
+	coda
+
+	hide spec ".main_method",
+		"! Takes a method name and returns the main (i.e. non-alternative) method name.",
+		UT(:foo__) == :foo__,
+		UT(:foo__1) == :foo,
+		UT(:foo__by_version?) == :foo?,
+	coda
+
+	hide spec "#i",
+		"! Returns the index number of a spec it if exists.",
+		expr("Manager.current").UT(Manager, :instance, :i).kind_of?(Numeric),
+	coda
+
+	hide spec "#add_described_header",
+		"! Cannot be tested.",
+		"! Validates a given descriptive header, and if it passes, then adds it.",
+	coda
+
+	hide spec "#described_headers",
+		"! Searches for a described header within the module that matches the name path. Used for searching the target of a link to a feature.",
+		expr("Manager.current").UT(Manager::Main, ["License"]).instance_of?(Array),
+		RETURN.length == 1,
+	coda
+
+	hide spec "#bad_spec",
+		"! Cannot be tested.",
+		"! Used for printing error in terminal.",
+	coda
+
+	hide spec "#wrong_item",
+		"! Cannot be tested.",
+		"! Used for printing error in terminal.",
+	coda
+
+	hide spec "::CodeRayOption",
+		"! Some output configurations for `coderay`.",
+	coda
+
+	hide spec "#render",
+		"! Calls the main routine to render the result. Called once for user's manual, and once for developer's chart.",
+	coda
+
+	hide spec "#left",
+		"! Renders the left panel in developer's chart.",
+	coda
+
+	hide spec "#coverage",
+		"! Temporal method to display the coverage report matched with lines.",
+	coda
+
+	hide spec "#main",	
+		"! Renders the main section",
+	coda
+
+	hide spec "#checkbox",
+		"! Renders the checkbox in the files section in developer's chart.",
+	coda
+end
+
+hide spec "::Manager::Spec",
+coda
+
+class Manager::Spec
+	spec nil,
+		"! The identity of each specification description.",
+		"spec = Manager::Spec.new".setup,
+	coda
+
+	spec "#header",
+		"! Getter.",
+		expr("spec").UT == nil,
+	coda
+
+	spec "#documentation",
+		"! Getter.",
+		expr("spec").UT == nil,
+	coda
+
+	spec "#hidden",
+		"! Getter.",
+		expr("spec").UT == false,
+	coda
+
+	spec "#type",
+		"! Getter.",
+		expr("spec").UT == nil,
+	coda
+
+	spec "#aliases",
+		"! Getter.",
+		expr("spec").UT == nil,
+	coda
+
+	spec "#alts",
+		"! Getter.",
+		"! Somehow plain `{}` would not be recognized as an argument of `==` in the test below.",
+		expr("spec").UT == expr("{}"),
+	coda
+
+	spec ".new",
+		"! Initializer",
+		Manager::Spec.UT.succeed?,
+	coda
+
+	spec "#undocumented_mark",
+		"! Marks those initialized through trace point signals during analysis of program code.",
+		expr("spec").UT == expr("spec"),
+		RECEIVER.instance_variable_get(:@undocumented) == true,
+	coda
+
+	hide spec "#order_fix",
+		"! Cannot be tested.",
+	coda
+
+	hide spec "#missing?",
+		"! Cannot be tested",
+	coda
+end
+
+hide spec "::Manager::AnnotationExtractor",
+coda
+
+class Manager::AnnotationExtractor
+	hide spec "::AnnotationLine",
+		"! Tagged annotations in the program code.",
+		UT =~ "#!TodO: blah blah",
+		UT =~ "#!!TodO blah blah",
+		UT !~ "#TodO blah blah",
+	coda
+
+	hide spec "::ContinuationOrCommentLine",
+		"! A line that starts with a comment character.",
+		UT =~ "#   blah blah",
+		UT =~ "#blah blah",
+		UT !~ "    #blah blah",
+		UT !~ " blah blah",
+	coda
+
+	hide spec "::ContinuationLine",
+		"! A line that is indented and has a comment character.",
+		"? Matches",
+		UT =~ "    #blah blah",
+		"? Is not indented",
+		UT !~ "#   blah blah",
+		UT !~ "#blah blah",
+		"? Does not have a comment character",
+		UT !~ " blah blah",
+	coda
+
+	hide spec "::BlockCommentStart",
+		"! Beginning of a block comment.",
+		UT =~ "=begin ",
+		UT =~ "=begin\t",
+		UT =~ "=begin\n",
+		UT !~ "=begi",
+	coda
+
+	hide spec "::BlockCommentEnd",
+		"! End of a block comment.",
+		UT =~ "=end ",
+		UT =~ "=end\t",
+		UT =~ "=end\n",
+		UT !~ "=en",
+	coda
+
+	hide spec "::DebugCommand",
+		"! A line that starts with method `puts`, `p`, or a line that has `.intercept`.",
+		UT =~ "puts()",
+		UT =~ "p 'foo'",
+		UT !~ "[] puts()",
+		UT !~ "{} p 'foo'",
+		UT =~ ".intercept",
+	coda
+
+	hide spec "#initialize",
+	coda
+
+	hide spec ".new",
+		"! Cannot be tested",
+	coda
+
+	hide spec "#read_upto",
+		"! Triggered by trace point, increments the reading line on the program file.",
+	coda
+
+	hide spec "#close",
+		"! Closes the program file that was read for extracting the annotations",
+	coda
+
+	hide spec "#read_line",
+		"! Read a line in the program file, checks for an annotation, and set the current state.",
+	coda
+end
+
+class Manager
+	hide spec "::MethodSignatureException",
+	coda
+	
+	hide spec "::MethodSignatureAlternatives",
+	coda
+end
+
+class <<Manager::Main
+	move spec "#gemspec",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"When the program under analysis is a Ruby gem, and this method is called, the gem spec information is displayed in the left panel of the developer's chart.",
+		{"(file)" => Gem::Specification},
+		"`file` should be the path to the `.gemspec` file either absolute or relative to the spec file.",
+		<<~'RUBY'.code,
+			gemspec "../manager.gemspec"
+		RUBY
+	coda
+
+	move spec "#manage",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"Registers the files to be analyzed. Files that are loaded or required other than by `manage` would not be the object of analysis.",
+		{"(file)" => value(nil)},
+		"`file` should be the path to the `.gemspec` file either absolute or relative to the spec file.",
+		<<~'RUBY'.code,
+			manage "../lib/helpers/foo.rb"
+			manage "../lib/helpers/bar.rb"
+		RUBY
+	coda
+end
+
+class Module
+	move spec "#hide",
+		"! Cannot be tested.",
+		"! Moved because the file `manager.rb` cannot be listed.",
+		"When a `spec` method is prefixed with this method, the specification will be hided in the user's manual.",
+		{"()" => value(nil)},
+		<<~'RUBY'.code,
+			hide spec "#foo",
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#move",
+		"! Cannot be tested.",
+		"! Moved because the file `manager.rb` cannot be listed.",
+		"When a `spec` method is prefixed with this method, the specification will be exempt from misplaced warnings.",
+		{"()" => value(nil)},
+		<<~'RUBY'.code,
+			move spec "#foo",
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#spec",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"The method to describe specifications.",
+		{"(feature, *[items])" => value(nil)},
+		<<~'RUBY'.code,
+			spec "#foo",
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#coda",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"A pseudo-keyword to close a block opened by the `spec` method.",
+		{"()" => Manager::Coda},
+		<<~'RUBY'.code,
+			spec "#foo",
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#value",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"Wraps an individual object in a method signature.",
+		{"(object)" => Module},
+		<<~'RUBY'.code,
+			spec "#foo",
+				{"(string, array)" => String | value(nil)},
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#error",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"Wraps an exception class in a method signature.",
+		{"(exception, **message: nil)" => Module},
+		<<~'RUBY'.code,
+			spec "#foo",
+				{"(string, array)" => String | error(ArgumentError)},
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#image",
+		"! Cannot be tested.",
+		"Describes an image for the  user's manual.",
+		{"(title, path)" => Manager::Render::Image},
+		<<~'RUBY'.code,
+			spec "#foo",
+				image("Initial diagram", "asset/initial_diagram.png"),
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#image!",
+		"! Cannot be tested.",
+		"Describes an image for the developer's chart.",
+		{"(title, path)" => Manager::Render::Image},
+		<<~'RUBY'.code,
+			spec "#foo",
+				image!("Initial diagram", "asset/initial_diagram.png"),
+				...
+			coda
+		RUBY
+	coda
+
+	move spec "#teardown",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		"Resets the effect of all previous setups.",
+		{"()" => value(nil)},
+		<<~'RUBY'.code,
+			spec "#foo",
+				"a = 3".setup,
+				...
+				teardown,
+			coda
+		RUBY
+	coda
+end
+
+class Class
+	spec "#|",
+		{"(other)" => Manager::MethodSignatureAlternatives},
+		"Expresses alternatives in the output of method signatures.",
+		<<~'RUBY'.code,
+			spec "#foo",
+				{"(string, array)" => String | error(ArgumentError) | value(nil)},
+				...
+			coda
+		RUBY
+	coda
+end
+
+hide spec "::Manager::Spellcheck",
+coda
+
+module Manager::Spellcheck
+	spec ".prepare",
+		"! Ensures to load the `ffi-aspell` gem.",
+	coda
+
+	spec ".list",
+		"! Returns the available dictionaries",
+		UT.include?("en") == true,
+	coda
+
+	spec ".language?",
+		"! Checks whether a given language is available.",
+		UT("en") == true,
+	coda
+
+	spec ".new",
+	coda
+
+	spec ".regex",
+		"! Returns a regular expression pattern for the language that extracts a word (the object of spell check).",
+		UT("en") =~ "word",
+	coda
+
+	spec ".filter",
+		"! Returns a list of non-existing words for the given language",
+		UT("en", %w[word nonword aaa who]) == %w[nonword aaa],
+	coda
+end
+
+hide spec "::Manager::Console",
+coda
+
+class Manager::Console
+	spec ".abort",
+		"! Cannot be tested.",
+		"! Routine to print an error message and terminate.",
+	coda
+end
+
+hide spec "::Manager::Context",
+coda
+
+hide spec "::Manager::Binding",
+coda
+
+hide spec "::Manager::ExprProc",
+coda
+
+hide spec "::Manager::Setup",
+coda
+
+hide spec "::Manager::Expr",
+coda
+
+hide spec "::Manager::UnitTest",
+coda
+
+hide spec "::Manager::Benchmark",
+coda
+
+hide spec "::Manager::Render",
+coda
+
+class Manager::Render
+	spec ".relative_path",
+		"! Returns the path relative to a given location. When given nil, returns `Manager.config(:bdir_expanded)`.",
+	coda
+end
+
+hide spec "::Manager::ModuleRefinement",
+coda
+
+hide spec "::Manager::ObjectMappingRefinement",
+coda
+
+hide spec "::Manager::TesterRefinement",
+coda
+
+class String
+	spec "#setup",
+		{"()" => Manager::Setup},
+		"Describes a setup to be used in tests.",
+		<<~'_'.code,
+			spec "#foo",
+				<<~'RUBY'.setup,
+					a = []
+					b = a * 10
+					c = [a, b]
+				RUBY
+			coda
+		_
+	coda
+
+	spec "#code",
+		{"(*language)" => Manager::Render::Code},
+		"Describes a code block for the user's manual. The optional `language` argument determines the language to be used in highlighting. By default, it is `:ruby`.",
+		<<~'_'.code,
+			spec "#foo",
+				<<~'RUBY'.code,
+					def foo
+						puts "This is Ruby code."
+					end
+				RUBY
+				<<~'CSS'.code(:css),
+					#main{
+						background-color: green;
+					}
+				CSS
+			coda
+		_
+	coda
+
+	spec "#code!",
+		{"(*language)" => Manager::Render::Code},
+		"Describes a code block for the developer's chart. The optional `language` argument determines the language to be used in highlighting. By default, it is `:ruby`.",
+		<<~'_'.code,
+			spec "#foo",
+				<<~'RUBY'.code!,
+					def foo
+						puts "This is Ruby code."
+					end
+				RUBY
+				<<~'CSS'.code!(:css),
+					#main{
+						background-color: green;
+					}
+				CSS
+			coda
+		_
+	coda
+end
+
+class BasicObject
+	spec nil,
+		"Besides, `UT` and `BM` explained below, `RETURN` and `RECEIVER` can be used in tests.",
+	coda
+	move spec "#UT",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		{"(*args, **kargs, &pr)" => ::Manager::UnitTest},
+		"A placeholder for the feature (method or constant) examined in unit tests.",
+		<<~'RUBY'.code,
+			class String
+				spec "#capitalize",
+					"foo".UT == "Foo",
+				coda
+			end
+		RUBY
+	coda
+
+	move spec "#BM",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		{"(*args, **kargs, &pr)" => ::Manager::Benchmark},
+		"A placeholder for the feature (method or constant) examined in benchmark tests.",
+		<<~'RUBY'.code,
+			class String
+				spec "#capitalize",
+					"foo".BM,
+				coda
+			end
+		RUBY
+	coda
+
+#spec "#succeed?",
+#	"! Cannot be tested.",
+#	"! Cannot be described.",
+#coda
+
+#spec "#raise?",
+#	"! Cannot be tested.",
+#	"! Cannot be described.",
+#coda
+
+#spec "#throw?",
+#	"! Cannot be tested.",
+#	"! Cannot be described.",
+#coda
+
+#	move spec "::RETURN",
+#		"! Cannot be tested.",
+#		"! Cannot be described",
+#		"! Moved because the file `input` cannot be listed.",
+#		"A placeholder for the return value of a previous successful unit test.",
+#	coda
+
+#	move spec "::RECEIVER",
+#		"! Cannot be tested.",
+#		"! Moved because the file `input` cannot be listed.",
+#		"A placeholder for the receiver value of a previous successful unit test.",
+#	coda
+
+#	move spec "::OUTPUT",
+#		"! Cannot be tested.",
+#		"! Moved because the file `input` cannot be listed.",
+#		"A placeholder for the terminal output during a previous successful unit test.",
+#	coda
+end
+
+class Object
+	move spec "#expr",
+		"! Cannot be tested.",
+		"! Moved because the file `input` cannot be listed.",
+		{"(string)" => Manager::Expr},
+		"Wraps an expression (string). Its content is evaluated during tests. Its inspected form is the original string expression, not the inspection form of the object it represents.",
+		<<~'RUBY'.code,
+			class String
+				spec "#upcase",
+					"long_foo = \"foo\" * 100".setup,
+					expr("long_foo").UT.length == 300,
+				coda
+			end
+		RUBY
+	coda
+	spec "#in?",
+		{"(array)" => value(true) | value(false)},
+		"A helper method for writing tests. It switches the receiver and the argument of `Array#include?`.",
+		<<~'RUBY'.code,
+			1.in?([1, 2]) #=> true
+			3.in?([1, 2]) #=> false
+		RUBY
+		1.UT([1, 2]) == true,
+		3.UT([1, 2]) == false,
+	coda
+end

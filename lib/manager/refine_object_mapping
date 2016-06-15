@@ -1,0 +1,143 @@
+#!ruby
+#frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+class Manager
+	module ObjectMappingRefinement
+		refine Render::UserCode do
+			def to_manager_object; self end
+		end
+
+		refine Render::DevCode do
+			def to_manager_object; self end
+		end
+
+		refine Render::UserImage do
+			def to_manager_object; self end
+		end
+
+		refine Render::DevImage do
+			def to_manager_object; self end
+		end
+
+		refine Render::TeardownClass do
+			def to_manager_object; self end
+		end
+
+		refine Setup do
+			def to_manager_object
+				@exp = ::Manager::Render::Expression.new(@exp)
+				self
+			end
+		end
+
+		refine Expr do
+			def to_manager_object; self end
+		end
+
+		refine BasicObject do
+			def UT.to_manager_object
+				::Manager::UnitTest.new(nil, nil, nil).to_manager_object
+			end
+			def RETURN.to_manager_object
+				::Manager::UnitTest.new(:return, nil, nil).to_manager_object
+			end
+			def RECEIVER.to_manager_object
+				::Manager::UnitTest.new(:receiver, nil, nil).to_manager_object
+			end
+			def OUTPUT.to_manager_object
+				::Manager::UnitTest.new(:output, nil, nil).to_manager_object
+			end
+			def BM.to_manager_object
+				::Manager::Benchmark.new(nil, nil).to_manager_object
+			end
+		end
+
+		refine UnitTest do
+			def to_manager_object
+				@sample = ::Manager.current.sample if @feature_args.nil? and @referer.nil?
+				@exp =
+				if @referer
+					::Manager::Render::Expression.new(@referer.upcase.to_s)
+				else
+					::Manager::Render::Expression.new(@sample.inspect,
+					::Manager.current.type, ::Manager.current.feature, @feature_args || [[], {}, nil])
+				end
+				@exp.push(@verifiers, @verifiers_args)
+				self
+			end
+		end
+
+		refine Benchmark do
+			def to_manager_object
+				@sample = ::Manager.current.sample if @feature_args.nil?
+				@exp = ::Manager::Render::Expression.new(@sample.inspect,
+				::Manager.current.type, ::Manager.current.feature, @feature_args || [[], {}, nil])
+				self
+			end
+		end
+
+		refine String do
+			def to_manager_object
+				@modul = Manager.current.modul
+				gsub!(/[\r\n]\s*/, " ")
+				case self
+				when /\A(!{1,2}) ?([^\s:]*):/
+					global = $1.length == 2
+					if global and @modul != Manager::Main
+						raise Manager.current.wrong_item(self,
+							"Global annotation can only be written in the `main` context "\
+							"with an implicit (`nil`) or explicit (`\"=Title ...\"`) section header")
+					end
+					sub!(/\A(!{1,2}) ?([^\s:]*):/, "")
+					Render::Annotation.new(global, $2, [], self)
+				when /\A(\?+) ?/
+					sub!(/\A(\?+) ?/, "")
+					Render::TestDescription.new($1.length, self)
+				when /\A-+!\z/
+					Render::DevLine
+				when /\A-+\z/
+					Render::UserLine
+				when /\A([*#]+)!/
+					sub!(/\A([*#]+)! ?/, "")
+					Render::DevList.new($1, self)
+				when /\A([*#]+)/
+					sub!(/\A([*#]+) ?/, "")
+					Render::UserList.new($1, self)
+				when /\A>!/
+					sub!(/\A>! ?/, "")
+					Render::DevCite.new(self)
+				when /\A>/
+					sub!(/\A> ?/, "")
+					Render::UserCite.new(self)
+				when /\A!/
+					sub!(/\A! ?/, "")
+					Render::DevParagraph.new(self)
+				else
+					Render::UserParagraph.new(self)
+				end
+			end
+		end
+
+		refine Hash do
+			def to_manager_object; Render::MethodSignature.new(self) end
+		end
+
+		refine Array do
+			def to_manager_object
+				each.with_index do |row, j| row.each.with_index do |cell, k|
+					next if String === cell #! `kind_of?`,`instance_of?`:
+					raise Manager.current.wrong_item(cell, "Table cell (#{j}, #{k}) must be a string")
+				end end
+				Render::Table.new(self)
+			end
+		end
+
+		refine Object do
+			def to_manager_object
+				raise ::Manager.current.wrong_item(self, "Cannot handle item of this class")
+			end
+		end
+	end
+end

@@ -1,0 +1,96 @@
+#!ruby
+# frozen_string_literal: true
+
+# Copyright (c) 2016 sawa
+
+class Manager
+	class AnnotationExtractor
+		AnnotationLine = /#(?<scope>!{1,2})\s*(?:(?<tag>[^\s:]*):)?\s*(?<text>.+)?/
+		ContinuationOrCommentLine = /^#\s*(?<text>.+)?/
+		ContinuationLine = /^\s+#\s*(?<text>.+)?/
+		BlockCommentStart = /^=begin\s/
+		BlockCommentEnd = /^=end[\s\z]/
+		DebugCommand = /^puts\b|^p\b|\.intercept\b/
+
+		def initialize f
+			#! Annotation and block comment can expand for multiple lines, hence the need of flag.
+			@tag, @block_comment, @io, @f, @l = nil, nil, File.new(f), f, 0
+			@feature = []
+		end
+		def read_upto modul, type, alt, (f, l)
+			#! The reported event might not be directly defining a method, but instead, for example,
+			#   aliasing a method name to a method already defined at some other location. These
+			#   cases will occur with a combination of a file name and a line number that do not 
+			#   point toward a forward location relative to the current read point, and hence 
+			#   can be ignored.
+			return unless f == @f and l > @l
+			read_line until @l == l
+			case @feature.last &.[](1) when :instance, :singleton
+				@feature.pop
+			end
+			case type
+			when :module_end
+				@feature.pop
+			else
+				@feature.push([modul, type, Manager.main_method(alt)])
+			end
+		end
+		def close
+			read_line until @io.eof?
+			@io.close
+		end
+		def read_line
+			@l += 1
+			s = @io.gets
+			return if @feature.empty?
+			case s
+			when AnnotationLine
+				@global = $~[:scope].length == 2
+				@tag = $~[:tag] || Manager.current.counts[:annotation] += 1
+				text = $~[:text] &.strip
+			when DebugCommand
+				@tag = :debug
+				text = nil
+			when BlockCommentStart
+				@tag = :comment
+				@block_comment = true
+				text = nil
+			when BlockCommentEnd
+				@tag = :comment
+				@block_comment = nil
+				text = nil
+			when ContinuationOrCommentLine
+				case @tag
+				when String, Integer
+					text = $~[:text] &.strip
+				else
+					@tag = :comment
+					text = nil
+				end
+			when ContinuationLine
+				case @tag
+				when String, Integer
+					text = $~[:text] &.strip
+				else
+					@tag = nil
+					return
+				end
+			else
+				if @block_comment
+					@tag = :comment
+					text = nil
+				else
+					@tag = nil
+					return
+				end
+			end
+			feature = @tag.is_a?(String) && @global ? [Main, @f, nil] : @feature.last
+			a, s = (Manager.current.annotations[feature] ||= {})[@tag] ||= [[], +""]
+			a.push([@f, text.!.!, @l])
+			if text
+				s.concat(Render::Annotation::Joiner) unless s.empty?
+				s.concat(text)
+			end
+		end
+	end
+end

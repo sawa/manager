@@ -1,0 +1,142 @@
+#!ruby
+#frozen-string-literal: true
+
+# Copyright (c) 2016 sawa
+
+class Manager
+	module ModuleRefinement
+		refine Module do
+			def aliases
+				instance_methods(false).concat(
+				private_instance_methods(false)).concat(
+				protected_instance_methods(false))
+				.group_by{|alt| instance_method(alt)}
+				.each_with_object({}) do
+					|(k, a), h|
+					a.delete(k.original_name)
+					h[k.original_name] = a unless a.empty?
+				end
+			end
+			def module_start constants_stack, tracing_classes
+				Manager.current.implementations[[self, :module, nil]] = true
+				tracing_classes[self] = true
+				constants_stack.push(constants(false))
+				__send__(:define_singleton_method, :singleton_method_added) do
+					|alt|
+					case alt; when :singleton_method_added, :method_added; else
+						alt = method(alt).original_name
+						loc = method(alt).real_location
+#						Manager.current.implementations[[self, :singleton, alt]] = loc
+						Manager.current.implementations[[self, :singleton, alt]] = true
+						Manager.current.annotation_extractor.read_upto(self, :singleton, alt, loc)
+					end
+				end
+				__send__(:define_singleton_method, :method_added) do
+					|alt|
+					alt = instance_method(alt).original_name
+					loc = instance_method(alt).real_location
+#					Manager.current.implementations[[self, :instance, alt]] = loc
+					Manager.current.implementations[[self, :instance, alt]] = true
+					Manager.current.annotation_extractor.read_upto(self, :instance, alt, loc)
+				end
+			end
+			def module_end constants_stack
+				(constants(false) - constants_stack.pop).each do
+					|c|
+					e = const_get(c.to_s)
+					if Module === e
+						Manager.current.implementations[[e, :module, nil]] = true
+						Manager.current.implementations[[self, :module_as_constant, c]] = true
+ 					else
+						Manager.current.implementations[[self, :constant, c]] = true
+					end
+				end
+			end
+			def constant_value feature, hide
+				visibility = constant_visibility(feature)
+				value = visibility && const_get(feature.to_s)
+				location = visibility && begin
+					f = ObjectSpace.allocation_sourcefile(value)
+					l = ObjectSpace.allocation_sourceline(value)
+					f && [File.realpath(f), l]
+				end
+				(hide ? Render::DevConstantValue : Render::UserConstantValue)
+				.new(visibility, location, value)
+			end
+			def implementation type, feature
+				case type
+				when :singleton
+					visibility = singleton_class.method_visibility(feature)
+					location = visibility && method(feature).real_location
+				when :instance
+					visibility = method_visibility(feature)
+					location = visibility && instance_method(feature).real_location
+				end
+				visibility && Render::Implementation.new(feature, visibility, location)
+			end
+			def original_name type, feature
+				case type
+				when :singleton
+					method(feature).original_name
+				when :instance
+					instance_method(feature).original_name
+				end
+			end
+			def inherited? type, feature
+				case type
+				when :constant
+					owner = ancestors.find{|klass| klass.const_defined?(feature, false)}
+					owner == self ? nil : owner
+				when :singleton
+					owner = method(feature).owner
+					owner == singleton_class ? nil : owner
+				when :instance
+					owner = instance_method(feature).owner
+					owner == self ? nil : owner
+				end
+			end
+			def constant_visibility feature
+
+				#! This is necessary because the `eval ... :: ...`  below is ambiguous with method call.
+				return unless feature == nil or (const_get(feature.to_s) rescue nil)
+				name =
+				#!note1: `inspect` is not the same as `name` in case of the `main` object.
+				if singleton_class? then inspect.gsub("#<Class:", "").gsub(">", ".singleton_class")
+				else inspect
+				end
+				begin
+					eval(feature == nil ? "#{Object}::#{name}" : "#{name}::#{feature}")
+					return :public
+				rescue NameError => e
+					#! `private constant` to make sure it is not `private method`. Redundantly fail safe.
+					return :private if e.message.start_with?("private constant")
+				rescue SyntaxError => e
+					return :public #! Actually unknown
+				end
+			end
+			def method_visibility feature
+				return :private if private_method_defined?(feature)
+				return :protected if protected_method_defined?(feature)
+				return :public if public_method_defined?(feature)
+			end
+			def namespace
+				return [self] if singleton_class? #! This is the current limitation.
+				to_s.split("::").each_with_object([]){|s, a| a.unshift((a.first || Object).const_get(s))}
+			end
+		end
+
+		refine Method do
+			def real_location
+				f, l = source_location
+				f && [File.realpath(f), l]
+			end
+		end
+
+		refine UnboundMethod do
+			def real_location
+				f, l = source_location
+				f && [File.realpath(f), l]
+			end
+		end
+	end
+end

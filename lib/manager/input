@@ -1,0 +1,189 @@
+#!ruby
+#frozen-string-literal: true
+
+# Copyright (c) 2016 sawa
+
+class String
+	def code lang = :ruby
+		Manager::Render::UserCode.new(self, lang)
+	end
+	def code! lang = :ruby
+		Manager::Render::DevCode.new(self, lang)
+	end
+	def setup
+		Manager::Setup.new(self, caller_locations.first)
+	end
+end
+
+module Manager::MethodSignatureItem
+	def | other
+		unless Manager::MethodSignatureItem === other
+			raise "Expecting a value, exception, or a `Class`: #{other}."
+		end
+		Manager::MethodSignatureAlternatives.new(self, other)
+	end
+end
+
+class Manager::MethodSignatureValue
+	def initialize obj; @obj = obj end
+	def to_s; "`#{@obj.inspect}`" end
+	include Manager::MethodSignatureItem
+end
+
+class Manager::MethodSignatureException
+	def initialize exception; @exception = exception end
+	def to_s; "raise #{@exception.inspect}" end
+	include Manager::MethodSignatureItem
+end
+
+class Class
+	include Manager::MethodSignatureItem
+end
+
+class Manager::MethodSignatureAlternatives
+	attr_reader :classes
+	def initialize *classes; @classes = classes end
+	def to_s; @classes.map(&:to_s).join(" | ") end
+	def | other
+		unless Manager::MethodSignatureItem === other
+			raise "Expecting a value, exception, or a `Class`: #{other}."
+		end
+		@classes.push(other)
+		self
+	end
+end
+
+#! Rather than defining the methods in `main` or in a common module and including that module in both `main.singleton_class` and `Module`, repeating this definition directly in `main.singleton_class` and `Module` so as to minimize pollution i.e. avoid poluting the main name space with these methods.
+
+def self.hide spec
+	Manager.current.hide(spec)
+end
+def self.move spec
+	Manager.current.move(spec)
+end
+def self.spec feature, *items, coda
+	Manager.current._spec(self, *Manager.validate_feature_call(self, feature, coda), items)
+end
+def self.coda; Manager::Coda end
+def self.value obj
+	Manager::MethodSignatureValue.new(obj)
+end
+def self.error klass = RuntimeError
+	unless Class === klass and klass <= Exception
+		raise "Expecting an `Exception` subclass: #{klass}."
+	end
+	Manager::MethodSignatureException.new(klass)
+end
+def self.image text, f, **style
+if style.empty? #!Ruby bug
+	Manager::Render::UserImage.new(text, f)
+else
+	Manager::Render::UserImage.new(text, f, style)
+end
+end
+def self.image! text, f, **style
+if style.empty? #!Ruby bug
+	Manager::Render::DevImage.new(text, f)
+else
+	Manager::Render::DevImage.new(text, f, style)
+end
+end
+def self.teardown; Manager::Render::Teardown end
+
+#! Unlike the other methods above, this one is not defined on `main.singleton_class` and `Module` because it should be callable from within `receiver.instance_eval{...}` environment inside a setup."
+def expr exp
+	raise "Expecting a string: `#{exp}`." unless String === exp
+	Manager::Expr.new(exp, caller_locations)
+end
+
+class Module
+	def hide spec
+		Manager.current.hide(spec)
+	end
+	def move spec
+		Manager.current.move(spec)
+	end
+	def spec feature, *items, coda
+		print "Reading #{caller_locations.first}:`spec`..."; $stdout.flush
+		Manager.current._spec(self, *Manager.validate_feature_call(self, feature, coda), items)
+		.tap{print "Done\r"; $stdout.flush}
+	end
+	def coda; Manager::Coda end
+	def value obj
+		Manager::MethodSignatureValue.new(obj)
+	end
+	def error klass = RuntimeError
+		unless Class === klass and klass <= Exception
+			raise "Expecting an `Exception` subclass: #{klass}."
+		end
+		Manager::MethodSignatureException.new(klass)
+	end
+	def image text, f, **style
+if style.empty? #!Ruby bug
+		Manager::Render::UserImage.new(text, f)
+else
+		Manager::Render::UserImage.new(text, f, style)
+end
+end
+	def image! text, f, **style
+if style.empty? #!Ruby bug
+		Manager::Render::DevImage.new(text, f)
+else
+		Manager::Render::DevImage.new(text, f, style)
+end
+	end
+	def teardown; Manager::Render::Teardown end
+end
+
+def self.gemspec f
+	f = File.expand_path(f, File.dirname(caller_locations.first.absolute_path))
+	Manager.current.gemspec(f)
+end
+def self.manage f
+	Manager.current.manage(f &&
+	File.expand_path(f, File.dirname(caller_locations.first.absolute_path)))
+end
+
+class BasicObject
+	using ::Manager::TesterRefinement
+
+	def UT *args, **kargs, &pr
+		::Manager::UnitTest.new(nil, self, [args, kargs, pr])
+	end
+	def BM *args, **kargs, &pr
+		::Manager::Benchmark.new(self, [args, kargs, pr])
+	end
+	UT = ::Manager::SanitizedObject.new
+	RETURN = ::Manager::SanitizedObject.new
+	RECEIVER = ::Manager::SanitizedObject.new
+	OUTPUT = ::Manager::SanitizedObject.new
+	BM = ::Manager::SanitizedObject.new
+	def UT.method_missing method, *args, **kargs, &pr
+if kargs.empty? #!Ruby bug
+		::Manager::UnitTest.new(nil, nil, nil).__send__(method, *args, &pr)
+else
+		::Manager::UnitTest.new(nil, nil, nil).__send__(method, *args, **kargs, &pr)
+end
+	end
+	def RETURN.method_missing method, *args, **kargs, &pr
+if kargs.empty? #!Ruby bug
+		::Manager::UnitTest.new(:return, nil, nil).__send__(method, *args, &pr)
+else
+		::Manager::UnitTest.new(:return, nil, nil).__send__(method, *args, **kargs, &pr)
+end
+	end
+	def RECEIVER.method_missing method, *args, **kargs, &pr
+if kargs.empty? #!Ruby bug
+		::Manager::UnitTest.new(:receiver, nil, nil).__send__(method, *args, &pr)
+else
+		::Manager::UnitTest.new(:receiver, nil, nil).__send__(method, *args, **kargs, &pr)
+end
+	end
+	def OUTPUT.method_missing method, *args, **kargs, &pr
+if kargs.empty? #!Ruby bug
+		::Manager::UnitTest.new(:output, nil, nil).__send__(method, *args, &pr)
+else
+		::Manager::UnitTest.new(:output, nil, nil).__send__(method, *args, **kargs, &pr)
+end
+	end
+end
